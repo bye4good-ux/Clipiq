@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-remote-config-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
-:root{--red:#e50914;--gold:#f5c518;--bg:#07070f;--bg3:#141420;--card:#10101a;--card2:#181826;--border:#22223a;--border2:#2a2a45;--text:#ededf5;--muted:#6666aa;--green:#00e676}
+:root{--red:#e50914;--gold:#f5c518;--bg:#07070f;--bg3:#141420;--card:#10101a;--card2:#181826;--border:#22223a;--border2:#2a2a45;--text:#ededf5;--muted:#6666aa;--green:#00e676;--blue:#4488ff;--orange:#ff9800}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 40% at 15% 0%,rgba(229,9,20,.12) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 85% 100%,rgba(245,197,24,.06) 0%,transparent 55%);pointer-events:none;z-index:0}
@@ -46,6 +46,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .tab-page.active{display:block}
 .upload-zone{border:2px dashed var(--border2);border-radius:22px;padding:48px 20px;text-align:center;cursor:pointer;background:var(--card);margin-bottom:16px;transition:all .3s}
 .upload-zone:hover{border-color:var(--red)}
+.upload-zone.dragover{border-color:var(--gold);background:rgba(245,197,24,.05)}
 .upload-icon{font-size:54px;display:block;margin-bottom:16px;animation:bob 3s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 .upload-title{font-size:18px;font-weight:800;margin-bottom:6px}
@@ -92,6 +93,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .btn-new{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:12px;padding:11px;font-size:13px;cursor:pointer}
 .btn-share{flex:1;background:rgba(100,100,255,.08);border:1px solid rgba(100,100,255,.25);color:#8888ff;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer}
 .btn-download{flex:1;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);color:var(--gold);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-report{flex:1;background:rgba(229,9,20,.08);border:1px solid rgba(229,9,20,.25);color:var(--red);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer}
 .page-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;margin-bottom:4px}
 .page-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
 .h-empty{text-align:center;padding:60px 20px;color:var(--muted)}
@@ -160,6 +162,18 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.success{border-color:var(--green);color:var(--green)}
 .toast.error{border-color:var(--red);color:#ff6b6b}
+.tip-box{background:rgba(68,136,255,.07);border:1px solid rgba(68,136,255,.2);border-radius:14px;padding:14px 16px;font-size:12px;color:var(--blue);margin-bottom:16px;line-height:1.6}
+.tip-box strong{color:var(--blue)}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.settings-row:last-child{border-bottom:none}
+.settings-label{font-size:14px;font-weight:600}
+.settings-desc{font-size:12px;color:var(--muted);margin-top:2px}
+.toggle-switch{width:44px;height:24px;background:var(--border);border-radius:12px;position:relative;cursor:pointer;transition:background .3s;flex-shrink:0}
+.toggle-switch.on{background:var(--green)}
+.toggle-switch::after{content:'';position:absolute;width:20px;height:20px;background:white;border-radius:50%;top:2px;left:2px;transition:transform .3s}
+.toggle-switch.on::after{transform:translateX(20px)}
+.wrong-result-box{background:rgba(255,152,0,.07);border:1px solid rgba(255,152,0,.25);border-radius:14px;padding:14px 16px;font-size:13px;color:var(--orange);margin:0 20px 16px;text-align:center}
+.wrong-result-box strong{color:var(--orange)}
 </style>
 </head>
 <body>
@@ -198,6 +212,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
   <div class="content">
     <div id="tab-search" class="tab-page active">
+      <div class="tip-box" id="tipBox">
+        <strong>💡 Pro Tip:</strong> For best results, use clips with visible faces, text, or iconic scenes. Avoid dark/blurry clips!
+      </div>
+
       <div class="upload-zone" id="uploadZone" onclick="document.getElementById('videoInput').click()">
         <span class="upload-icon">🎬</span>
         <div class="upload-title">Upload Video Clip</div>
@@ -223,11 +241,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
       <div class="loading-wrap" id="loadingWrap">
         <div class="film-bars"><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div></div>
-        <div class="loading-text">Analyzing...</div>
+        <div class="loading-text" id="loadingText">Analyzing...</div>
         <div class="loading-steps">
-          <div class="loading-step" id="step1">📽️ Extracting frames...</div>
+          <div class="loading-step" id="step1">📽️ Extracting best frames...</div>
           <div class="loading-step" id="step2">🔤 Reading subtitles...</div>
-          <div class="loading-step" id="step3">🤖 AI analyzing...</div>
+          <div class="loading-step" id="step3">🤖 AI analyzing with smart detection...</div>
           <div class="loading-step" id="step4">🎬 Fetching movie details...</div>
         </div>
       </div>
@@ -239,6 +257,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <div class="confidence-fill" id="confidenceFill">0%</div>
         </div>
         <div class="result-body" id="resultText"></div>
+        <div class="wrong-result-box" id="wrongResultBox" style="display:none">
+          <strong>⚠️ Not the right movie?</strong><br>
+          <small>This can happen with similar-looking scenes. Try a clip with clearer faces or dialogue.</small>
+        </div>
         <div class="result-footer">
           <button class="btn-save" onclick="saveHistory()">💾 Save</button>
           <button class="btn-new" onclick="clearFile();document.getElementById('resultWrap').style.display='none'">New</button>
@@ -246,6 +268,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <div class="result-footer" style="padding-top:0">
           <button class="btn-share" onclick="shareResult()">🔗 Share</button>
           <button class="btn-download" onclick="downloadResult()">⬇️ Download</button>
+          <button class="btn-report" onclick="reportWrong()">❌ Wrong?</button>
         </div>
       </div>
     </div>
@@ -291,14 +314,40 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="s-group">
         <div class="s-title">Account</div>
         <div class="s-card">
-          <div class="s-row"><div class="s-icon">⭐</div><div class="s-info"><div class="s-label">Plan</div><div class="s-sub">Free — 5 searches/day</div></div></div>
+          <div class="s-row"><div class="s-icon">⭐</div><div class="s-info"><div class="s-label">Plan</div><div class="s-sub" id="planSub">Free — 5 searches/day</div></div></div>
           <div class="s-row" onclick="switchTab('premium')"><div class="s-icon">👑</div><div class="s-info"><div class="s-label">Get Premium</div><div class="s-sub">Rs.199/month</div></div><div class="s-arrow">›</div></div>
+        </div>
+      </div>
+      <div class="s-group">
+        <div class="s-title">Settings</div>
+        <div class="s-card">
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Ultra-Save Mode</div>
+              <div class="settings-desc">Use only 1 frame (saves 75% quota)</div>
+            </div>
+            <div class="toggle-switch" id="ultraSaveToggle" onclick="toggleUltraSave()"></div>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">High Quality Frames</div>
+              <div class="settings-desc">Better accuracy but uses more quota</div>
+            </div>
+            <div class="toggle-switch on" id="hqToggle" onclick="toggleHQ()"></div>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Smart Scene Detection</div>
+              <div class="settings-desc">Auto-pick best frames (recommended)</div>
+            </div>
+            <div class="toggle-switch on" id="smartToggle" onclick="toggleSmart()"></div>
+          </div>
         </div>
       </div>
       <div class="s-group">
         <div class="s-title">App</div>
         <div class="s-card">
-          <div class="s-row"><div class="s-icon">📊</div><div class="s-info"><div class="s-label">Version</div><div class="s-sub">ClipIQ v2.0 by GOGEE16</div></div></div>
+          <div class="s-row"><div class="s-icon">📊</div><div class="s-info"><div class="s-label">Version</div><div class="s-sub">ClipIQ v3.1 — Accuracy Improved</div></div></div>
         </div>
       </div>
       <button class="logout-btn" onclick="doLogout()">Logout</button>
@@ -336,6 +385,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 <div class="toast" id="toast"></div>
 
 <script>
+// ===================== CONFIG =====================
 firebase.initializeApp({
   apiKey:"AIzaSyCdjEWm9zTsQLn1BE9OnYPLvayal1zn-54",
   authDomain:"clipiq-700bb.firebaseapp.com",
@@ -359,10 +409,15 @@ remoteConfig.fetchAndActivate().then(() => {
   TMDB_KEY = remoteConfig.getValue('tmdb_api_key').asString();
 }).catch(e => console.log('RC error:', e));
 
+// ===================== STATE =====================
 let user=null, isPremium=false, searchesLeft=5, currentFile=null, currentResult='', selectedPlan='monthly';
 let localHistory = JSON.parse(localStorage.getItem('ciq_h')||'[]');
+let ultraSaveMode = localStorage.getItem('ciq_ultra') === 'true';
+let highQuality = localStorage.getItem('ciq_hq') !== 'false';
+let smartScene = localStorage.getItem('ciq_smart') !== 'false';
+let videoCache = JSON.parse(localStorage.getItem('ciq_cache')||'{}');
 
-// AUTH
+// ===================== AUTH =====================
 auth.onAuthStateChanged(u=>{
   if(u){ user=u; document.getElementById('loginScreen').classList.remove('active'); document.getElementById('appScreen').classList.add('active'); setupUser(u); }
   else { user=null; document.getElementById('loginScreen').classList.add('active'); document.getElementById('appScreen').classList.remove('active'); }
@@ -376,19 +431,54 @@ function setupUser(u){
   document.getElementById('profEmail').textContent = u.email||'';
   if(u.photoURL){ document.getElementById('navAvatar').innerHTML=`<img src="${u.photoURL}">`; document.getElementById('profAvatar').innerHTML=`<img src="${u.photoURL}">`; }
   updateUI(); renderHistory();
+  if(ultraSaveMode) document.getElementById('ultraSaveToggle').classList.add('on');
+  if(highQuality) document.getElementById('hqToggle').classList.add('on');
+  if(smartScene) document.getElementById('smartToggle').classList.add('on');
 }
 
 function loginGoogle(){ const p=new firebase.auth.GoogleAuthProvider(); auth.signInWithPopup(p).catch(e=>toast('Login failed: '+e.message,'error')); }
 function doLogout(){ if(!confirm('Logout?'))return; auth.signOut(); }
 
-// TABS
+// ===================== TABS =====================
 function switchTab(t){
   document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.tab-page').forEach(el=>el.classList.toggle('active',el.id==='tab-'+t));
   if(t==='history') renderHistory();
 }
 
-// FILE
+// ===================== SETTINGS =====================
+function toggleUltraSave(){
+  ultraSaveMode = !ultraSaveMode;
+  localStorage.setItem('ciq_ultra', ultraSaveMode);
+  document.getElementById('ultraSaveToggle').classList.toggle('on', ultraSaveMode);
+  toast(ultraSaveMode ? 'Ultra-Save ON: 1 frame only' : 'Ultra-Save OFF: 2 frames', 'success');
+}
+
+function toggleHQ(){
+  highQuality = !highQuality;
+  localStorage.setItem('ciq_hq', highQuality);
+  document.getElementById('hqToggle').classList.toggle('on', highQuality);
+  toast(highQuality ? 'High Quality ON' : 'High Quality OFF: Saves quota', 'success');
+}
+
+function toggleSmart(){
+  smartScene = !smartScene;
+  localStorage.setItem('ciq_smart', smartScene);
+  document.getElementById('smartToggle').classList.toggle('on', smartScene);
+  toast(smartScene ? 'Smart Detection ON: Best frames auto-selected' : 'Smart Detection OFF: Fixed intervals', 'success');
+}
+
+// ===================== FILE HANDLING =====================
+const uploadZone = document.getElementById('uploadZone');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
 document.getElementById('videoInput').onchange = e => { if(e.target.files[0]) handleFile(e.target.files[0]); };
 
 function handleFile(f){
@@ -419,6 +509,7 @@ function updateUI(){
   document.getElementById('searchBtn').disabled = !(currentFile&&(isPremium||searchesLeft>0));
   document.getElementById('limitBox').style.display = (!isPremium&&searchesLeft<=0)?'block':'none';
   document.getElementById('creditsEl').innerHTML = isPremium ? '⭐ <b>Premium</b>' : `🔍 <b>${searchesLeft}</b>/5`;
+  document.getElementById('planSub').textContent = isPremium ? 'Premium — Unlimited' : 'Free — 5 searches/day';
 }
 
 function setStep(n){
@@ -430,8 +521,15 @@ function setStep(n){
   }
 }
 
-// FRAME EXTRACTION
-async function extractFrames(videoFile, count=4){
+// ===================== VIDEO HASH (CACHE) =====================
+async function getVideoHash(file){
+  const buf = await file.slice(0, 1024*64).arrayBuffer();
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('').substring(0,16);
+}
+
+// ===================== SMART FRAME EXTRACTION =====================
+async function extractFramesSmart(videoFile){
   return new Promise(resolve=>{
     const video = document.createElement('video');
     video.src = URL.createObjectURL(videoFile);
@@ -440,13 +538,78 @@ async function extractFrames(videoFile, count=4){
       const duration = Math.min(video.duration, 20);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      canvas.width = 480; canvas.height = 270;
-      const frames = [];
-      for(let i=1; i<=count; i++){
-        const time = (duration/(count+1))*i;
+      const w = highQuality ? 480 : 320;
+      const h = highQuality ? 270 : 180;
+      canvas.width = w; canvas.height = h;
+
+      // Calculate brightness of frames to find best ones
+      const sampleCount = 12; // Sample 12 points
+      const samples = [];
+
+      for(let i=0; i<sampleCount; i++){
+        const time = (duration / (sampleCount+1)) * (i+1);
         await new Promise(r=>{ video.currentTime=time; video.onseeked=r; });
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        frames.push(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
+
+        // Calculate average brightness
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let brightness = 0;
+        for(let j=0; j<imageData.data.length; j+=4){
+          brightness += (imageData.data[j] + imageData.data[j+1] + imageData.data[j+2]) / 3;
+        }
+        brightness = brightness / (imageData.data.length / 4);
+
+        const quality = highQuality ? 0.7 : 0.5;
+        const base64 = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+        samples.push({ time, brightness, base64 });
+      }
+
+      // Sort by brightness (brighter = usually better quality)
+      samples.sort((a,b) => b.brightness - a.brightness);
+
+      // Pick top frames, spread across video
+      const frameCount = ultraSaveMode ? 1 : 2;
+      const selected = [];
+
+      if(frameCount === 1){
+        selected.push(samples[0].base64);
+      } else {
+        // Pick brightest and a mid-brightness one for variety
+        selected.push(samples[0].base64);
+        selected.push(samples[Math.floor(samples.length/2)].base64);
+      }
+
+      resolve(selected);
+    };
+    video.onerror = ()=> resolve([]);
+  });
+}
+
+// Simple frame extraction (fallback)
+async function extractFramesSimple(videoFile, count=2){
+  return new Promise(resolve=>{
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(videoFile);
+    video.muted = true;
+    video.onloadedmetadata = async ()=>{
+      const duration = Math.min(video.duration, 20);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const w = highQuality ? 480 : 320;
+      const h = highQuality ? 270 : 180;
+      canvas.width = w; canvas.height = h;
+      const frames = [];
+
+      const frameCount = ultraSaveMode ? 1 : count;
+      const positions = [];
+      if(frameCount === 1) positions.push(duration * 0.5);
+      else { positions.push(duration * 0.3); positions.push(duration * 0.7); }
+
+      for(const time of positions){
+        await new Promise(r=>{ video.currentTime=time; video.onseeked=r; });
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const quality = highQuality ? 0.7 : 0.5;
+        frames.push(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
       }
       resolve(frames);
     };
@@ -454,16 +617,21 @@ async function extractFrames(videoFile, count=4){
   });
 }
 
-// OCR
+// ===================== OCR (OPTIMIZED) =====================
 async function detectSubtitle(base64Image){
   try{
-    const result = await Tesseract.recognize(`data:image/jpeg;base64,${base64Image}`, 'eng');
-    return result.data.text || '';
+    const result = await Tesseract.recognize(`data:image/jpeg;base64,${base64Image}`, 'eng', {
+      logger: () => {},
+      rectangle: { left: 0, top: Math.floor(270*0.65), width: 480, height: Math.floor(270*0.35) }
+    });
+    const text = result.data.text.trim();
+    return text.length > 3 ? text : '';
   }catch(e){ return ''; }
 }
 
-// TMDB
+// ===================== TMDB =====================
 async function fetchTMDB(title){
+  if(!TMDB_KEY) return {};
   try{
     const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&language=en-US`);
     const data = await res.json();
@@ -479,7 +647,27 @@ async function fetchTMDB(title){
   }catch(e){ return {}; }
 }
 
-// MAIN SEARCH
+// ===================== FALLBACK: DIRECT SEARCH =====================
+async function fallbackSearch(subtitleText){
+  if(!subtitleText || !TMDB_KEY) return null;
+  try{
+    const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(subtitleText.substring(0,50))}&language=en-US`);
+    const data = await res.json();
+    const m = data.results?.[0];
+    if(!m) return null;
+    return {
+      title: m.title||m.name||'Unknown',
+      type: m.media_type||'movie',
+      year: (m.release_date||m.first_air_date||'').substring(0,4),
+      confidence: 60,
+      actors: [],
+      genre: '',
+      summary: m.overview||'Found via subtitle search'
+    };
+  }catch(e){ return null; }
+}
+
+// ===================== MAIN SEARCH (OPTIMIZED) =====================
 async function doSearch(){
   if(!currentFile||!user) return;
   if(!isPremium&&searchesLeft<=0){ toast('Free searches used up!','error'); return; }
@@ -490,108 +678,137 @@ async function doSearch(){
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('movieCard').innerHTML = '';
   document.getElementById('confidenceBar').style.display = 'none';
+  document.getElementById('wrongResultBox').style.display = 'none';
 
   try{
+    // Check cache first
+    const vHash = await getVideoHash(currentFile);
+    if(videoCache[vHash] && videoCache[vHash].result){
+      toast('Found in cache! ⚡', 'success');
+      displayResult(videoCache[vHash].result, videoCache[vHash].tmdb);
+      if(!isPremium) searchesLeft = Math.max(0, searchesLeft-1);
+      updateUI();
+      document.getElementById('loadingWrap').style.display = 'none';
+      document.getElementById('searchBtn').style.display = 'block';
+      return;
+    }
+
     // Step 1 - Extract frames
     setStep(1);
-    const frames = await extractFrames(currentFile, 4);
+    const frameCount = ultraSaveMode ? 1 : 2;
+    document.getElementById('step1').textContent = `📽️ Extracting ${frameCount} best frame${frameCount>1?'s':''}...`;
+
+    let frames;
+    if(smartScene){
+      frames = await extractFramesSmart(currentFile);
+    } else {
+      frames = await extractFramesSimple(currentFile, frameCount);
+    }
+
     if(!frames.length) throw new Error('Could not process video');
 
     // Step 2 - OCR
     setStep(2);
     let subtitleText = '';
-    const ocrFrame = frames[0];
-    subtitleText = await detectSubtitle(ocrFrame);
+    subtitleText = await detectSubtitle(frames[0]);
+    document.getElementById('step2').textContent = subtitleText ? `🔤 Subtitle: "${subtitleText.substring(0,30)}..."` : '🔤 No subtitles detected';
 
-    // Step 3 - Gemini AI
+    // Step 3 - Gemini AI with BETTER PROMPT
     setStep(3);
-    const parts = [];
-    frames.forEach(f => parts.push({ inline_data: { mime_type: 'image/jpeg', data: f } }));
-    parts.push({ text: `You are a movie expert. Analyze these video frames and identify the movie or TV show.
-Subtitles found: ${subtitleText}
+    let result = null;
+    let apiError = null;
 
-Reply with ONLY this JSON format, no extra text:
-{"title":"Movie Name Here","type":"movie","year":"2004","confidence":90,"actors":["Actor 1","Actor 2"],"genre":"Action","summary":"Brief summary here"}
-
-Rules:
-- confidence: number 0-100
-- If you cannot identify, set confidence to 30
-- No markdown, no backticks, just pure JSON` });
-
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2, maxOutputTokens:500} })
-    });
-
-    const data = await res.json();
-    if(!res.ok) throw new Error(data.error?.message||'API error');
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if(!text) throw new Error('No response received');
-
-    let result;
     try{
-      // Clean response and extract JSON
+      const parts = [];
+      frames.forEach(f => parts.push({ inline_data: { mime_type: 'image/jpeg', data: f } }));
+
+      // IMPROVED PROMPT for better accuracy
+      const promptText = `You are an expert movie and TV show identifier with 10+ years of experience.
+
+Analyze the provided video frame(s) and identify the EXACT movie or TV show.
+
+${subtitleText ? 'SUBTITLES DETECTED: "' + subtitleText + '"' : 'No subtitles detected in frames.'}
+
+INSTRUCTIONS:
+1. Look for: actor faces, costumes, settings, props, text, logos, visual style
+2. If multiple frames provided, they are from the SAME video - use ALL for context
+3. Be VERY specific with the title - include year if known
+4. If unsure, provide your best guess with lower confidence
+
+RESPOND WITH ONLY THIS JSON FORMAT (no markdown, no backticks, no extra text):
+{"title":"Exact Movie Title","type":"movie","year":"2004","confidence":85,"actors":["Lead Actor","Supporting Actor"],"genre":"Action, Thriller","summary":"Brief 1-2 sentence plot summary"}
+
+confidence rules:
+- 90-100: Absolutely certain (recognizable actors, iconic scene)
+- 70-89: Fairly confident (good visual clues)
+- 50-69: Uncertain but educated guess
+- 30-49: Very uncertain, likely wrong
+- 0-29: Cannot identify at all
+
+If you truly cannot identify, use: {"title":"Unknown","type":"unknown","year":"","confidence":25,"actors":[],"genre":"","summary":"Cannot identify from provided frames"}`;
+
+      parts.push({ text: promptText });
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ 
+          contents:[{parts}], 
+          generationConfig:{temperature:0.05, maxOutputTokens:500, topP:0.8}
+        })
+      });
+
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error?.message||'API error');
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(!text) throw new Error('No response received');
+
+      // Parse JSON with better error handling
       let clean = text.replace(/```json/g,'').replace(/```/g,'').trim();
-      // Find JSON object in response
       const match = clean.match(/\{[\s\S]*\}/);
       if(match) clean = match[0];
       result = JSON.parse(clean);
-    }catch(e){
-      // If JSON fails, try to extract movie name directly
-      const titleMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
-      if(titleMatch){
-        result = { title: titleMatch[1], confidence: 75, actors: [], genre: '', summary: text.substring(0,200) };
-      } else {
-        throw new Error('Could not process AI response. Please try again.');
+
+      // Validate result
+      if(!result.title || result.title === 'Unknown'){
+        throw new Error('Could not identify from frames');
       }
+
+    }catch(e){
+      apiError = e.message;
+      console.log('Gemini failed, trying fallback...', e.message);
+    }
+
+    // Fallback if Gemini failed
+    if(!result){
+      result = await fallbackSearch(subtitleText);
+      if(!result) throw new Error(apiError || 'AI service unavailable. Please try again later.');
+      toast('Used subtitle fallback search', 'success');
     }
 
     const confidence = parseInt(result.confidence)||0;
 
-    if(confidence < 65){
-      document.getElementById('resultText').innerHTML = '<div style="color:var(--muted);text-align:center;padding:10px">Could not confidently identify this clip.<br><small>Try a clearer or longer clip.</small></div>';
+    if(confidence < 50){
+      document.getElementById('resultText').innerHTML = '<div style="color:var(--muted);text-align:center;padding:10px">Could not confidently identify this clip.<br><small>Try a clip with clearer faces, dialogue, or iconic scenes.</small></div>';
       document.getElementById('resultWrap').style.display = 'block';
+      document.getElementById('wrongResultBox').style.display = 'block';
       currentResult = 'Could not confidently identify this clip.';
     } else {
       // Step 4 - TMDB
       setStep(4);
       const tmdb = TMDB_KEY ? await fetchTMDB(result.title) : {};
+      displayResult(result, tmdb);
 
-      const title = tmdb.title || result.title;
-      const year = tmdb.year || result.year;
-      const rating = tmdb.rating || 'N/A';
-      const overview = tmdb.overview || result.summary || '';
-      const poster = tmdb.poster || '';
+      // Show warning for low confidence
+      if(confidence < 75){
+        document.getElementById('wrongResultBox').style.display = 'block';
+      }
 
-      // Movie card
-      document.getElementById('movieCard').innerHTML = `
-        <div class="movie-card">
-          ${poster ? `<img src="${poster}" class="movie-poster" onerror="this.outerHTML='<div class=movie-poster-placeholder>🎬</div>'">` : '<div class="movie-poster-placeholder">🎬</div>'}
-          <div class="movie-info">
-            <div class="movie-title">${title}</div>
-            <div class="movie-meta">
-              <span>📅 ${year}</span>
-              <span>⭐ ${rating}/10</span>
-              <span>🎭 ${result.genre||''}</span>
-            </div>
-            <div class="movie-overview">${overview.substring(0,150)}${overview.length>150?'...':''}</div>
-          </div>
-        </div>`;
-
-      // Confidence bar
-      document.getElementById('confidenceBar').style.display = 'block';
-      document.getElementById('confidenceFill').style.width = confidence+'%';
-      document.getElementById('confidenceFill').textContent = confidence+'% Match';
-
-      // Details
-      const actors = (result.actors||[]).join(', ');
-      document.getElementById('resultText').innerHTML = actors ? `<strong>Cast:</strong> ${actors}` : '';
-
-      currentResult = `${title} (${year})\nRating: ${rating}/10\nGenre: ${result.genre}\nCast: ${actors}\n${overview}`;
+      // Save to cache
+      videoCache[vHash] = { result, tmdb, timestamp: Date.now() };
+      localStorage.setItem('ciq_cache', JSON.stringify(videoCache));
     }
 
-    document.getElementById('resultWrap').style.display = 'block';
     if(!isPremium) searchesLeft = Math.max(0, searchesLeft-1);
 
   }catch(e){
@@ -604,9 +821,53 @@ Rules:
   }
 }
 
-function toB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(f); }); }
+function displayResult(result, tmdb){
+  const confidence = parseInt(result.confidence)||0;
+  const title = tmdb.title || result.title;
+  const year = tmdb.year || result.year;
+  const rating = tmdb.rating || 'N/A';
+  const overview = tmdb.overview || result.summary || '';
+  const poster = tmdb.poster || '';
 
-// HISTORY
+  document.getElementById('movieCard').innerHTML = `
+    <div class="movie-card">
+      ${poster ? `<img src="${poster}" class="movie-poster" onerror="this.outerHTML='<div class=movie-poster-placeholder>🎬</div>'">` : '<div class="movie-poster-placeholder">🎬</div>'}
+      <div class="movie-info">
+        <div class="movie-title">${title}</div>
+        <div class="movie-meta">
+          <span>📅 ${year||'N/A'}</span>
+          <span>⭐ ${rating}/10</span>
+          <span>🎭 ${result.genre||''}</span>
+        </div>
+        <div class="movie-overview">${overview.substring(0,150)}${overview.length>150?'...':''}</div>
+      </div>
+    </div>`;
+
+  document.getElementById('confidenceBar').style.display = 'block';
+  document.getElementById('confidenceFill').style.width = confidence+'%';
+  document.getElementById('confidenceFill').textContent = confidence+'% Match';
+
+  const actors = (result.actors||[]).join(', ');
+  document.getElementById('resultText').innerHTML = actors ? `<strong>Cast:</strong> ${actors}` : '';
+
+  currentResult = `${title} (${year||'N/A'})\nRating: ${rating}/10\nGenre: ${result.genre}\nCast: ${actors}\n${overview}`;
+  document.getElementById('resultWrap').style.display = 'block';
+}
+
+// ===================== REPORT WRONG RESULT =====================
+function reportWrong(){
+  toast('Thanks for feedback! We will improve accuracy.', 'success');
+  // You can also send this to your database
+  if(user && currentResult){
+    db.collection('wrong_results').add({
+      uid: user.uid,
+      result: currentResult,
+      timestamp: new Date().toISOString()
+    }).catch(()=>{});
+  }
+}
+
+// ===================== HISTORY =====================
 function saveHistory(){
   if(!currentResult) return;
   const first = currentResult.split('\n')[0].trim();
@@ -641,7 +902,7 @@ function renderHistory(){
 
 function delHistory(id){ if(!confirm('Delete?'))return; localHistory=localHistory.filter(h=>h.id!==id); localStorage.setItem('ciq_h',JSON.stringify(localHistory)); renderHistory(); toast('Deleted!','success'); }
 
-// SHARE & DOWNLOAD
+// ===================== SHARE & DOWNLOAD =====================
 function shareResult(){
   const text = currentResult.substring(0,300);
   if(navigator.share) navigator.share({title:'ClipIQ',text:text,url:'https://clipiq.netlify.app'}).catch(()=>copyText(text));
@@ -654,12 +915,12 @@ function downloadResult(){
 }
 function copyText(t){ navigator.clipboard.writeText(t).then(()=>toast('Copied!','success')).catch(()=>toast('Copy failed','error')); }
 
-// PAYMENT
+// ===================== PAYMENT =====================
 function openPay(plan){ selectedPlan=plan; document.getElementById('payDesc').textContent=plan==='monthly'?'Monthly Premium — Rs.199/month':'Yearly Premium — Rs.1990/year'; document.getElementById('payModal').classList.add('open'); }
 function closePay(){ document.getElementById('payModal').classList.remove('open'); }
 function sendWA(){ const msg=encodeURIComponent(`ClipIQ ${selectedPlan==='monthly'?'Monthly Rs.199':'Yearly Rs.1990'}\nEmail: ${user?.email||''}`); window.open(`https://wa.me/923000000000?text=${msg}`,'_blank'); closePay(); }
 
-// TOAST
+// ===================== TOAST =====================
 function toast(msg, type=''){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;
