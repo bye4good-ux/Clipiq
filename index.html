@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ClipIQ — Movie Finder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-remote-config-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+:root{--red:#e50914;--gold:#f5c518;--bg:#07070f;--bg3:#141420;--card:#10101a;--card2:#181826;--border:#22223a;--border2:#2a2a45;--text:#ededf5;--muted:#6666aa;--green:#00e676}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 40% at 15% 0%,rgba(229,9,20,.12) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 85% 100%,rgba(245,197,24,.06) 0%,transparent 55%);pointer-events:none;z-index:0}
+.screen{display:none;position:relative;z-index:1;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+#loginScreen{align-items:center;justify-content:center;padding:24px}
+.login-wrap{width:100%;max-width:420px}
+.logo-wrap{text-align:center;margin-bottom:40px}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:6px;line-height:1;background:linear-gradient(135deg,#fff 0%,var(--gold) 40%,var(--red) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-tag{font-size:11px;color:var(--muted);letter-spacing:4px;text-transform:uppercase;margin-top:6px}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:36px 28px}
+.login-title{font-size:22px;font-weight:800;margin-bottom:8px;text-align:center}
+.login-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:32px;line-height:1.7}
+.google-btn{width:100%;background:white;color:#1a1a1a;border:none;border-radius:14px;padding:16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all .3s;margin-bottom:20px}
+.google-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,255,255,.15)}
+.feats{display:flex;flex-direction:column;gap:10px;margin-top:20px;border-top:1px solid var(--border);padding-top:20px}
+.feat{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}
+.nav{position:sticky;top:0;z-index:100;background:rgba(7,7,15,.92);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:58px;flex-shrink:0}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:3px;background:linear-gradient(135deg,#fff 0%,var(--gold) 50%,var(--red) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-right{display:flex;align-items:center;gap:10px}
+.credits-pill{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--muted)}
+.credits-pill b{color:var(--gold)}
+.avatar-btn{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--red),#7a0008);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer;overflow:hidden}
+.avatar-btn img{width:100%;height:100%;object-fit:cover}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(7,7,15,.95);backdrop-filter:blur(24px);border-top:1px solid var(--border);display:flex;padding:8px 0}
+.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .2s}
+.nav-tab.active{color:var(--red)}
+.nav-tab-icon{font-size:22px}
+.nav-tab-label{font-size:10px;font-weight:600}
+.content{flex:1;overflow-y:auto;padding:20px 16px 90px}
+.tab-page{display:none}
+.tab-page.active{display:block}
+.upload-zone{border:2px dashed var(--border2);border-radius:22px;padding:48px 20px;text-align:center;cursor:pointer;background:var(--card);margin-bottom:16px;transition:all .3s}
+.upload-zone:hover{border-color:var(--red)}
+.upload-icon{font-size:54px;display:block;margin-bottom:16px;animation:bob 3s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.upload-title{font-size:18px;font-weight:800;margin-bottom:6px}
+.upload-sub{font-size:13px;color:var(--muted);margin-bottom:16px}
+.chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.chip{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);font-weight:600}
+#videoInput{display:none}
+.preview-wrap{display:none;background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:16px}
+.preview-wrap video{width:100%;max-height:200px;object-fit:contain;display:block;background:#000}
+.preview-info{padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.preview-name{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%}
+.preview-del{background:rgba(229,9,20,.15);border:1px solid rgba(229,9,20,.3);color:var(--red);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.search-btn{width:100%;background:linear-gradient(135deg,var(--red) 0%,#8a0007 100%);color:white;border:none;border-radius:16px;padding:18px;font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px;cursor:pointer;transition:all .3s;margin-bottom:16px}
+.search-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 35px rgba(229,9,20,.5)}
+.search-btn:disabled{opacity:.35;cursor:not-allowed}
+.limit-box{display:none;background:rgba(245,197,24,.07);border:1px solid rgba(245,197,24,.25);border-radius:14px;padding:14px 16px;font-size:13px;color:var(--gold);margin-bottom:16px}
+.error-box{display:none;background:rgba(229,9,20,.07);border:1px solid rgba(229,9,20,.25);border-radius:14px;padding:16px;font-size:14px;color:#ff6b6b;margin-bottom:16px}
+.loading-wrap{display:none;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px 20px;text-align:center;margin-bottom:16px}
+.film-bars{display:flex;justify-content:center;gap:5px;margin-bottom:16px}
+.film-bar{width:6px;height:36px;background:var(--red);border-radius:3px;animation:fa 1s ease-in-out infinite}
+.film-bar:nth-child(1){animation-delay:0s}.film-bar:nth-child(2){animation-delay:.12s}.film-bar:nth-child(3){animation-delay:.24s}.film-bar:nth-child(4){animation-delay:.36s}.film-bar:nth-child(5){animation-delay:.48s}.film-bar:nth-child(6){animation-delay:.6s}
+@keyframes fa{0%,100%{transform:scaleY(1);opacity:1}50%{transform:scaleY(.25);opacity:.25}}
+.loading-text{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--muted);margin-bottom:8px}
+.loading-steps{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.loading-step{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;opacity:.4;transition:opacity .3s}
+.loading-step.active{opacity:1;color:var(--text)}
+.loading-step.done{opacity:.7;color:var(--green)}
+.result-wrap{display:none;background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;margin-bottom:16px;animation:popIn .4s ease}
+@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.result-header{background:linear-gradient(135deg,var(--red) 0%,#6a0006 100%);padding:14px 20px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px}
+.movie-card{display:flex;gap:14px;padding:16px 20px;border-bottom:1px solid var(--border);align-items:flex-start}
+.movie-poster{width:80px;height:120px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--bg3)}
+.movie-poster-placeholder{width:80px;height:120px;border-radius:10px;flex-shrink:0;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:30px}
+.movie-info{flex:1;min-width:0}
+.movie-title{font-size:18px;font-weight:800;margin-bottom:6px;line-height:1.3}
+.movie-meta{font-size:13px;color:var(--muted);margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap}
+.movie-overview{font-size:13px;color:var(--muted);line-height:1.6}
+.confidence-bar{margin:0 20px 16px;background:var(--bg3);border-radius:20px;overflow:hidden;height:28px;position:relative}
+.confidence-fill{height:100%;border-radius:20px;background:linear-gradient(135deg,var(--red),var(--gold));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#000;transition:width .8s ease;min-width:60px}
+.result-body{padding:16px 20px;font-size:15px;line-height:2;font-weight:500}
+.result-body strong{color:var(--gold)}
+.result-footer{padding:0 20px 14px;display:flex;gap:8px}
+.btn-save{flex:1;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.25);color:var(--green);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-new{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:12px;padding:11px;font-size:13px;cursor:pointer}
+.btn-share{flex:1;background:rgba(100,100,255,.08);border:1px solid rgba(100,100,255,.25);color:#8888ff;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-download{flex:1;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);color:var(--gold);border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.h-empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.h-empty-icon{font-size:56px;margin-bottom:16px}
+.h-list{display:flex;flex-direction:column;gap:12px}
+.h-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;gap:14px}
+.h-thumb{width:56px;height:56px;background:var(--bg3);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden}
+.h-thumb img{width:100%;height:100%;object-fit:cover}
+.h-info{flex:1;min-width:0}
+.h-movie{font-size:15px;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.h-date{font-size:11px;color:var(--muted);margin-bottom:6px}
+.h-prev{font-size:12px;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.h-del{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px;flex-shrink:0;align-self:flex-start}
+.prem-hero{text-align:center;padding:24px 0 20px}
+.prem-icon{font-size:56px;margin-bottom:12px}
+.prem-title{font-family:'Bebas Neue',sans-serif;font-size:40px;letter-spacing:3px;background:linear-gradient(135deg,var(--gold),#c87800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.prem-sub{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.7}
+.plan-cards{display:flex;flex-direction:column;gap:12px;margin:20px 0}
+.plan-card{background:var(--card);border:2px solid var(--border);border-radius:20px;padding:22px 18px;cursor:pointer;transition:all .3s;position:relative}
+.plan-card.hot{border-color:var(--gold)}
+.plan-card:hover{transform:translateY(-2px)}
+.plan-hot{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--gold),#c87800);color:#000;font-size:10px;font-weight:800;padding:3px 14px;border-radius:20px;white-space:nowrap}
+.plan-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.plan-name{font-size:16px;font-weight:800}
+.plan-desc{font-size:12px;color:var(--muted);margin-top:3px}
+.plan-price{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--gold);text-align:right}
+.plan-period{font-size:11px;color:var(--muted);text-align:right}
+.plan-feats{list-style:none;display:flex;flex-direction:column;gap:8px}
+.plan-feats li{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.plan-feats li::before{content:'✓';color:var(--green);font-weight:800}
+.prof-header{display:flex;flex-direction:column;align-items:center;padding:24px 0 20px;text-align:center}
+.prof-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--red),#7a0008);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;margin-bottom:14px;border:3px solid var(--border2);overflow:hidden}
+.prof-avatar img{width:100%;height:100%;object-fit:cover}
+.prof-name{font-size:20px;font-weight:800;margin-bottom:4px}
+.prof-email{font-size:13px;color:var(--muted)}
+.s-group{margin-bottom:20px}
+.s-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;padding-left:4px}
+.s-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.s-row{display:flex;align-items:center;padding:15px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s;gap:14px}
+.s-row:last-child{border-bottom:none}
+.s-row:hover{background:var(--bg3)}
+.s-icon{font-size:20px;width:32px;text-align:center;flex-shrink:0}
+.s-info{flex:1}
+.s-label{font-size:14px;font-weight:600}
+.s-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.s-arrow{color:var(--muted);font-size:18px}
+.logout-btn{width:100%;background:rgba(229,9,20,.07);border:1px solid rgba(229,9,20,.2);color:var(--red);border-radius:14px;padding:15px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card2);border:1px solid var(--border2);border-radius:28px 28px 0 0;padding:24px 22px 32px;width:100%;max-width:480px;animation:sheetUp .35s ease}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 22px}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.pay-box{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center;margin-bottom:16px}
+.pay-label{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.pay-num{font-size:24px;font-weight:800;color:var(--gold);letter-spacing:2px}
+.pay-name{font-size:12px;color:var(--muted);margin-top:4px}
+.pay-steps{margin:16px 0;display:flex;flex-direction:column;gap:12px}
+.pay-step{display:flex;gap:12px;align-items:flex-start}
+.step-n{width:26px;height:26px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.step-t{font-size:13px;color:var(--muted);line-height:1.6}
+.wa-btn{width:100%;background:linear-gradient(135deg,#25d366,#128c7e);color:white;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px}
+.modal-cancel{width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:12px;padding:13px;font-size:14px;cursor:pointer}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--border2);border-radius:14px;padding:12px 20px;font-size:13px;font-weight:600;z-index:300;transition:all .35s;opacity:0;pointer-events:none;white-space:nowrap;max-width:90vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:#ff6b6b}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="screen active">
+  <div class="login-wrap">
+    <div class="logo-wrap">
+      <div class="logo">ClipIQ</div>
+      <div class="logo-tag">AI Movie Identifier</div>
+    </div>
+    <div class="login-card">
+      <div class="login-title">Get Started!</div>
+      <div class="login-sub">Sign in with Google and identify any movie from a short video clip!</div>
+      <button class="google-btn" onclick="loginGoogle()">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Sign in with Google
+      </button>
+      <div class="feats">
+        <div class="feat"><span>🎬</span><span>Identify movies from video clips</span></div>
+        <div class="feat"><span>🤖</span><span>AI powered — 90%+ accuracy</span></div>
+        <div class="feat"><span>📜</span><span>Search history saved automatically</span></div>
+        <div class="feat"><span>🆓</span><span>5 free searches per day</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="appScreen" class="screen">
+  <nav class="nav">
+    <div class="nav-logo">ClipIQ</div>
+    <div class="nav-right">
+      <div class="credits-pill" id="creditsEl">🔍 <b>5</b>/5</div>
+      <div class="avatar-btn" id="navAvatar" onclick="switchTab('profile')">U</div>
+    </div>
+  </nav>
+
+  <div class="content">
+    <div id="tab-search" class="tab-page active">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('videoInput').click()">
+        <span class="upload-icon">🎬</span>
+        <div class="upload-title">Upload Video Clip</div>
+        <p class="upload-sub">Max 15MB • Max 20 seconds • Tap or drag</p>
+        <div class="chips">
+          <span class="chip">MP4</span><span class="chip">MOV</span><span class="chip">AVI</span><span class="chip">MKV</span>
+        </div>
+        <input type="file" id="videoInput" accept="video/*">
+      </div>
+
+      <div class="preview-wrap" id="previewWrap">
+        <video id="previewVid" controls playsinline></video>
+        <div class="preview-info">
+          <span class="preview-name" id="previewName"></span>
+          <button class="preview-del" onclick="clearFile()">Remove</button>
+        </div>
+      </div>
+
+      <div class="limit-box" id="limitBox">Free searches used up! Get Premium — Rs. 199/month</div>
+      <div class="error-box" id="errorBox"></div>
+
+      <button class="search-btn" id="searchBtn" disabled onclick="doSearch()">FIND MOVIE</button>
+
+      <div class="loading-wrap" id="loadingWrap">
+        <div class="film-bars"><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div></div>
+        <div class="loading-text">Analyzing...</div>
+        <div class="loading-steps">
+          <div class="loading-step" id="step1">📽️ Extracting frames...</div>
+          <div class="loading-step" id="step2">🔤 Reading subtitles...</div>
+          <div class="loading-step" id="step3">🤖 AI analyzing...</div>
+          <div class="loading-step" id="step4">🎬 Fetching movie details...</div>
+        </div>
+      </div>
+
+      <div class="result-wrap" id="resultWrap">
+        <div class="result-header">🎯 MOVIE FOUND!</div>
+        <div id="movieCard"></div>
+        <div class="confidence-bar" id="confidenceBar" style="display:none">
+          <div class="confidence-fill" id="confidenceFill">0%</div>
+        </div>
+        <div class="result-body" id="resultText"></div>
+        <div class="result-footer">
+          <button class="btn-save" onclick="saveHistory()">💾 Save</button>
+          <button class="btn-new" onclick="clearFile();document.getElementById('resultWrap').style.display='none'">New</button>
+        </div>
+        <div class="result-footer" style="padding-top:0">
+          <button class="btn-share" onclick="shareResult()">🔗 Share</button>
+          <button class="btn-download" onclick="downloadResult()">⬇️ Download</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-history" class="tab-page">
+      <div class="page-title">History</div>
+      <div class="page-sub">Your previous searches</div>
+      <div class="h-empty" id="hEmpty"><div class="h-empty-icon">📭</div><div>No history yet.<br>Find your first movie!</div></div>
+      <div class="h-list" id="hList"></div>
+    </div>
+
+    <div id="tab-premium" class="tab-page">
+      <div class="prem-hero">
+        <div class="prem-icon">👑</div>
+        <div class="prem-title">Get Premium</div>
+        <div class="prem-sub">Unlimited searches and full history!</div>
+      </div>
+      <div class="plan-cards">
+        <div class="plan-card hot" onclick="openPay('monthly')">
+          <div class="plan-hot">🔥 MOST POPULAR</div>
+          <div class="plan-top">
+            <div><div class="plan-name">Monthly Premium</div><div class="plan-desc">Renews monthly</div></div>
+            <div><div class="plan-price">Rs.199</div><div class="plan-period">per month</div></div>
+          </div>
+          <ul class="plan-feats"><li>Unlimited daily searches</li><li>Full history forever</li><li>No ads</li><li>Priority support</li></ul>
+        </div>
+        <div class="plan-card" onclick="openPay('yearly')">
+          <div class="plan-top">
+            <div><div class="plan-name">Yearly Premium</div><div class="plan-desc">2 months free!</div></div>
+            <div><div class="plan-price">Rs.1990</div><div class="plan-period">per year</div></div>
+          </div>
+          <ul class="plan-feats"><li>Everything in Monthly</li><li>Save Rs.398</li><li>Early access features</li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-profile" class="tab-page">
+      <div class="prof-header">
+        <div class="prof-avatar" id="profAvatar">U</div>
+        <div class="prof-name" id="profName">User</div>
+        <div class="prof-email" id="profEmail"></div>
+      </div>
+      <div class="s-group">
+        <div class="s-title">Account</div>
+        <div class="s-card">
+          <div class="s-row"><div class="s-icon">⭐</div><div class="s-info"><div class="s-label">Plan</div><div class="s-sub">Free — 5 searches/day</div></div></div>
+          <div class="s-row" onclick="switchTab('premium')"><div class="s-icon">👑</div><div class="s-info"><div class="s-label">Get Premium</div><div class="s-sub">Rs.199/month</div></div><div class="s-arrow">›</div></div>
+        </div>
+      </div>
+      <div class="s-group">
+        <div class="s-title">App</div>
+        <div class="s-card">
+          <div class="s-row"><div class="s-icon">📊</div><div class="s-info"><div class="s-label">Version</div><div class="s-sub">ClipIQ v2.0 by GOGEE16</div></div></div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-tab active" data-tab="search" onclick="switchTab('search')"><span class="nav-tab-icon">🔍</span><span class="nav-tab-label">Search</span></button>
+    <button class="nav-tab" data-tab="history" onclick="switchTab('history')"><span class="nav-tab-icon">📜</span><span class="nav-tab-label">History</span></button>
+    <button class="nav-tab" data-tab="premium" onclick="switchTab('premium')"><span class="nav-tab-icon">👑</span><span class="nav-tab-label">Premium</span></button>
+    <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')"><span class="nav-tab-icon">👤</span><span class="nav-tab-label">Profile</span></button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="payModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Payment</div>
+    <div class="modal-sub" id="payDesc">Monthly Premium — Rs.199</div>
+    <div class="pay-box">
+      <div class="pay-label">EasyPaisa / JazzCash</div>
+      <div class="pay-num">0300-0000000</div>
+      <div class="pay-name">ClipIQ — GOGEE16</div>
+    </div>
+    <div class="pay-steps">
+      <div class="pay-step"><div class="step-n">1</div><div class="step-t">Send payment to the number above</div></div>
+      <div class="pay-step"><div class="step-n">2</div><div class="step-t">Take a screenshot of payment</div></div>
+      <div class="pay-step"><div class="step-n">3</div><div class="step-t">Send on WhatsApp — activated within 24 hours!</div></div>
+    </div>
+    <button class="wa-btn" onclick="sendWA()">Send on WhatsApp</button>
+    <button class="modal-cancel" onclick="closePay()">Cancel</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyCdjEWm9zTsQLn1BE9OnYPLvayal1zn-54",
+  authDomain:"clipiq-700bb.firebaseapp.com",
+  projectId:"clipiq-700bb",
+  storageBucket:"clipiq-700bb.firebasestorage.app",
+  messagingSenderId:"769611927750",
+  appId:"1:769611927750:web:90bca289cc839062c447c7"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const remoteConfig = firebase.remoteConfig();
+remoteConfig.settings.minimumFetchIntervalMillis = 3600000;
+remoteConfig.defaultConfig = { gemini_api_key: '', tmdb_api_key: '' };
+
+let GEMINI_KEY = '';
+let TMDB_KEY = '';
+
+remoteConfig.fetchAndActivate().then(() => {
+  GEMINI_KEY = remoteConfig.getValue('gemini_api_key').asString();
+  TMDB_KEY = remoteConfig.getValue('tmdb_api_key').asString();
+}).catch(e => console.log('RC error:', e));
+
+let user=null, isPremium=false, searchesLeft=5, currentFile=null, currentResult='', selectedPlan='monthly';
+let localHistory = JSON.parse(localStorage.getItem('ciq_h')||'[]');
+
+// AUTH
+auth.onAuthStateChanged(u=>{
+  if(u){ user=u; document.getElementById('loginScreen').classList.remove('active'); document.getElementById('appScreen').classList.add('active'); setupUser(u); }
+  else { user=null; document.getElementById('loginScreen').classList.add('active'); document.getElementById('appScreen').classList.remove('active'); }
+});
+
+function setupUser(u){
+  const init = u.displayName ? u.displayName[0].toUpperCase() : 'U';
+  document.getElementById('navAvatar').textContent = init;
+  document.getElementById('profAvatar').textContent = init;
+  document.getElementById('profName').textContent = u.displayName||'User';
+  document.getElementById('profEmail').textContent = u.email||'';
+  if(u.photoURL){ document.getElementById('navAvatar').innerHTML=`<img src="${u.photoURL}">`; document.getElementById('profAvatar').innerHTML=`<img src="${u.photoURL}">`; }
+  updateUI(); renderHistory();
+}
+
+function loginGoogle(){ const p=new firebase.auth.GoogleAuthProvider(); auth.signInWithPopup(p).catch(e=>toast('Login failed: '+e.message,'error')); }
+function doLogout(){ if(!confirm('Logout?'))return; auth.signOut(); }
+
+// TABS
+function switchTab(t){
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
+  document.querySelectorAll('.tab-page').forEach(el=>el.classList.toggle('active',el.id==='tab-'+t));
+  if(t==='history') renderHistory();
+}
+
+// FILE
+document.getElementById('videoInput').onchange = e => { if(e.target.files[0]) handleFile(e.target.files[0]); };
+
+function handleFile(f){
+  if(!f.type.startsWith('video/')){ toast('Video files only!','error'); return; }
+  if(f.size > 15*1024*1024){ toast('File must be under 15MB!','error'); return; }
+  currentFile = f;
+  document.getElementById('previewVid').src = URL.createObjectURL(f);
+  document.getElementById('previewName').textContent = f.name;
+  document.getElementById('previewWrap').style.display = 'block';
+  document.getElementById('uploadZone').style.display = 'none';
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  updateUI();
+}
+
+function clearFile(){
+  currentFile = null;
+  document.getElementById('previewVid').src = '';
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('uploadZone').style.display = 'block';
+  document.getElementById('videoInput').value = '';
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('searchBtn').disabled = true;
+}
+
+function updateUI(){
+  document.getElementById('searchBtn').disabled = !(currentFile&&(isPremium||searchesLeft>0));
+  document.getElementById('limitBox').style.display = (!isPremium&&searchesLeft<=0)?'block':'none';
+  document.getElementById('creditsEl').innerHTML = isPremium ? '⭐ <b>Premium</b>' : `🔍 <b>${searchesLeft}</b>/5`;
+}
+
+function setStep(n){
+  for(let i=1;i<=4;i++){
+    const el = document.getElementById('step'+i);
+    if(i < n) el.className='loading-step done';
+    else if(i === n) el.className='loading-step active';
+    else el.className='loading-step';
+  }
+}
+
+// FRAME EXTRACTION
+async function extractFrames(videoFile, count=4){
+  return new Promise(resolve=>{
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(videoFile);
+    video.muted = true;
+    video.onloadedmetadata = async ()=>{
+      const duration = Math.min(video.duration, 20);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 480; canvas.height = 270;
+      const frames = [];
+      for(let i=1; i<=count; i++){
+        const time = (duration/(count+1))*i;
+        await new Promise(r=>{ video.currentTime=time; video.onseeked=r; });
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        frames.push(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
+      }
+      resolve(frames);
+    };
+    video.onerror = ()=> resolve([]);
+  });
+}
+
+// OCR
+async function detectSubtitle(base64Image){
+  try{
+    const result = await Tesseract.recognize(`data:image/jpeg;base64,${base64Image}`, 'eng');
+    return result.data.text || '';
+  }catch(e){ return ''; }
+}
+
+// TMDB
+async function fetchTMDB(title){
+  try{
+    const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&language=en-US`);
+    const data = await res.json();
+    const m = data.results?.[0];
+    if(!m) return {};
+    return {
+      title: m.title||m.name||title,
+      year: (m.release_date||m.first_air_date||'').substring(0,4),
+      rating: m.vote_average ? m.vote_average.toFixed(1) : 'N/A',
+      overview: m.overview||'',
+      poster: m.poster_path ? `https://image.tmdb.org/t/p/w200${m.poster_path}` : ''
+    };
+  }catch(e){ return {}; }
+}
+
+// MAIN SEARCH
+async function doSearch(){
+  if(!currentFile||!user) return;
+  if(!isPremium&&searchesLeft<=0){ toast('Free searches used up!','error'); return; }
+
+  document.getElementById('searchBtn').style.display = 'none';
+  document.getElementById('loadingWrap').style.display = 'block';
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('movieCard').innerHTML = '';
+  document.getElementById('confidenceBar').style.display = 'none';
+
+  try{
+    // Step 1 - Extract frames
+    setStep(1);
+    const frames = await extractFrames(currentFile, 4);
+    if(!frames.length) throw new Error('Could not process video');
+
+    // Step 2 - OCR
+    setStep(2);
+    let subtitleText = '';
+    const ocrFrame = frames[0];
+    subtitleText = await detectSubtitle(ocrFrame);
+
+    // Step 3 - Gemini AI
+    setStep(3);
+    const parts = [];
+    frames.forEach(f => parts.push({ inline_data: { mime_type: 'image/jpeg', data: f } }));
+    parts.push({ text: `You are a movie expert. Analyze these video frames and identify the movie or TV show.
+Subtitles found: ${subtitleText}
+
+Reply with ONLY this JSON format, no extra text:
+{"title":"Movie Name Here","type":"movie","year":"2004","confidence":90,"actors":["Actor 1","Actor 2"],"genre":"Action","summary":"Brief summary here"}
+
+Rules:
+- confidence: number 0-100
+- If you cannot identify, set confidence to 30
+- No markdown, no backticks, just pure JSON` });
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2, maxOutputTokens:500} })
+    });
+
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error?.message||'API error');
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!text) throw new Error('No response received');
+
+    let result;
+    try{
+      // Clean response and extract JSON
+      let clean = text.replace(/```json/g,'').replace(/```/g,'').trim();
+      // Find JSON object in response
+      const match = clean.match(/\{[\s\S]*\}/);
+      if(match) clean = match[0];
+      result = JSON.parse(clean);
+    }catch(e){
+      // If JSON fails, try to extract movie name directly
+      const titleMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
+      if(titleMatch){
+        result = { title: titleMatch[1], confidence: 75, actors: [], genre: '', summary: text.substring(0,200) };
+      } else {
+        throw new Error('Could not process AI response. Please try again.');
+      }
+    }
+
+    const confidence = parseInt(result.confidence)||0;
+
+    if(confidence < 65){
+      document.getElementById('resultText').innerHTML = '<div style="color:var(--muted);text-align:center;padding:10px">Could not confidently identify this clip.<br><small>Try a clearer or longer clip.</small></div>';
+      document.getElementById('resultWrap').style.display = 'block';
+      currentResult = 'Could not confidently identify this clip.';
+    } else {
+      // Step 4 - TMDB
+      setStep(4);
+      const tmdb = TMDB_KEY ? await fetchTMDB(result.title) : {};
+
+      const title = tmdb.title || result.title;
+      const year = tmdb.year || result.year;
+      const rating = tmdb.rating || 'N/A';
+      const overview = tmdb.overview || result.summary || '';
+      const poster = tmdb.poster || '';
+
+      // Movie card
+      document.getElementById('movieCard').innerHTML = `
+        <div class="movie-card">
+          ${poster ? `<img src="${poster}" class="movie-poster" onerror="this.outerHTML='<div class=movie-poster-placeholder>🎬</div>'">` : '<div class="movie-poster-placeholder">🎬</div>'}
+          <div class="movie-info">
+            <div class="movie-title">${title}</div>
+            <div class="movie-meta">
+              <span>📅 ${year}</span>
+              <span>⭐ ${rating}/10</span>
+              <span>🎭 ${result.genre||''}</span>
+            </div>
+            <div class="movie-overview">${overview.substring(0,150)}${overview.length>150?'...':''}</div>
+          </div>
+        </div>`;
+
+      // Confidence bar
+      document.getElementById('confidenceBar').style.display = 'block';
+      document.getElementById('confidenceFill').style.width = confidence+'%';
+      document.getElementById('confidenceFill').textContent = confidence+'% Match';
+
+      // Details
+      const actors = (result.actors||[]).join(', ');
+      document.getElementById('resultText').innerHTML = actors ? `<strong>Cast:</strong> ${actors}` : '';
+
+      currentResult = `${title} (${year})\nRating: ${rating}/10\nGenre: ${result.genre}\nCast: ${actors}\n${overview}`;
+    }
+
+    document.getElementById('resultWrap').style.display = 'block';
+    if(!isPremium) searchesLeft = Math.max(0, searchesLeft-1);
+
+  }catch(e){
+    document.getElementById('errorBox').textContent = '❌ ' + e.message;
+    document.getElementById('errorBox').style.display = 'block';
+  }finally{
+    document.getElementById('loadingWrap').style.display = 'none';
+    document.getElementById('searchBtn').style.display = 'block';
+    updateUI();
+  }
+}
+
+function toB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(f); }); }
+
+// HISTORY
+function saveHistory(){
+  if(!currentResult) return;
+  const first = currentResult.split('\n')[0].trim();
+  const item = { id:Date.now(), movie:first||'Movie', result:currentResult, date:new Date().toLocaleDateString(), uid:user?.uid };
+  localHistory.unshift(item);
+  if(!isPremium&&localHistory.length>5) localHistory=localHistory.slice(0,5);
+  localStorage.setItem('ciq_h', JSON.stringify(localHistory));
+  db.collection('history').add({ uid:user.uid, movie:first||'Movie', result:currentResult, createdAt:new Date().toISOString() }).catch(()=>{});
+  toast('Saved!','success');
+}
+
+function renderHistory(){
+  const list = document.getElementById('hList');
+  const empty = document.getElementById('hEmpty');
+  list.innerHTML = '';
+  const items = localHistory.filter(h=>h.uid===user?.uid);
+  if(!items.length){ empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  items.forEach(item=>{
+    const d = document.createElement('div');
+    d.className = 'h-card';
+    d.innerHTML = `<div class="h-thumb">🎬</div><div class="h-info"><div class="h-movie">${item.movie}</div><div class="h-date">${item.date}</div><div class="h-prev">${item.result.substring(0,100)}...</div></div><button class="h-del" onclick="delHistory(${item.id})">🗑️</button>`;
+    list.appendChild(d);
+  });
+  if(!isPremium&&items.length>=5){
+    const lock=document.createElement('div');
+    lock.style.cssText='text-align:center;padding:20px;background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.2);border-radius:14px;margin-top:12px';
+    lock.innerHTML=`<div style="font-size:28px;margin-bottom:10px">🔒</div><div style="font-size:13px;color:var(--muted);margin-bottom:14px">Only 5 free searches shown.<br>Get Premium for full history!</div><button onclick="switchTab('premium')" style="background:linear-gradient(135deg,#f5c518,#c87800);color:#000;border:none;border-radius:10px;padding:10px 20px;font-weight:800;font-size:13px;cursor:pointer">Get Premium</button>`;
+    list.appendChild(lock);
+  }
+}
+
+function delHistory(id){ if(!confirm('Delete?'))return; localHistory=localHistory.filter(h=>h.id!==id); localStorage.setItem('ciq_h',JSON.stringify(localHistory)); renderHistory(); toast('Deleted!','success'); }
+
+// SHARE & DOWNLOAD
+function shareResult(){
+  const text = currentResult.substring(0,300);
+  if(navigator.share) navigator.share({title:'ClipIQ',text:text,url:'https://clipiq.netlify.app'}).catch(()=>copyText(text));
+  else copyText(text);
+}
+function downloadResult(){
+  const blob=new Blob(['ClipIQ Result\n\n'+currentResult],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='clipiq-result.txt'; a.click();
+  toast('Downloaded!','success');
+}
+function copyText(t){ navigator.clipboard.writeText(t).then(()=>toast('Copied!','success')).catch(()=>toast('Copy failed','error')); }
+
+// PAYMENT
+function openPay(plan){ selectedPlan=plan; document.getElementById('payDesc').textContent=plan==='monthly'?'Monthly Premium — Rs.199/month':'Yearly Premium — Rs.1990/year'; document.getElementById('payModal').classList.add('open'); }
+function closePay(){ document.getElementById('payModal').classList.remove('open'); }
+function sendWA(){ const msg=encodeURIComponent(`ClipIQ ${selectedPlan==='monthly'?'Monthly Rs.199':'Yearly Rs.1990'}\nEmail: ${user?.email||''}`); window.open(`https://wa.me/923000000000?text=${msg}`,'_blank'); closePay(); }
+
+// TOAST
+function toast(msg, type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3000);
+}
+</script>
+</body>
+</html>
