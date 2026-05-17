@@ -201,7 +201,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="upload-zone" id="uploadZone" onclick="document.getElementById('videoInput').click()">
         <span class="upload-icon">🎬</span>
         <div class="upload-title">Upload Video Clip</div>
-        <p class="upload-sub">Max 15MB • Max 20 seconds • Tap or drag</p>
+        <p class="upload-sub">Max 50MB • Tap or drag • Auto compressed</p>
         <div class="chips">
           <span class="chip">MP4</span><span class="chip">MOV</span><span class="chip">AVI</span><span class="chip">MKV</span>
         </div>
@@ -216,7 +216,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         </div>
       </div>
 
-      <div class="limit-box" id="limitBox">Free searches used up! Get Premium — Rs. 199/month</div>
+      <div class="limit-box" id="limitBox">⚠️ Daily limit reached! Come back tomorrow for 5 more free searches.</div>
       <div class="error-box" id="errorBox"></div>
 
       <button class="search-btn" id="searchBtn" disabled onclick="doSearch()">FIND MOVIE</button>
@@ -225,8 +225,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <div class="film-bars"><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div></div>
         <div class="loading-text">Analyzing...</div>
         <div class="loading-steps">
-          <div class="loading-step" id="step1">📽️ Extracting frames...</div>
-          <div class="loading-step" id="step2">🔤 Reading subtitles...</div>
+          <div class="loading-step" id="step1">🗜️ Compressing video...</div>
+          <div class="loading-step" id="step2">📤 Preparing video...</div>
           <div class="loading-step" id="step3">🤖 AI analyzing...</div>
           <div class="loading-step" id="step4">🎬 Fetching movie details...</div>
         </div>
@@ -257,31 +257,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="h-list" id="hList"></div>
     </div>
 
-    <div id="tab-premium" class="tab-page">
-      <div class="prem-hero">
-        <div class="prem-icon">👑</div>
-        <div class="prem-title">Get Premium</div>
-        <div class="prem-sub">Unlimited searches and full history!</div>
-      </div>
-      <div class="plan-cards">
-        <div class="plan-card hot" onclick="openPay('monthly')">
-          <div class="plan-hot">🔥 MOST POPULAR</div>
-          <div class="plan-top">
-            <div><div class="plan-name">Monthly Premium</div><div class="plan-desc">Renews monthly</div></div>
-            <div><div class="plan-price">Rs.199</div><div class="plan-period">per month</div></div>
-          </div>
-          <ul class="plan-feats"><li>Unlimited daily searches</li><li>Full history forever</li><li>No ads</li><li>Priority support</li></ul>
-        </div>
-        <div class="plan-card" onclick="openPay('yearly')">
-          <div class="plan-top">
-            <div><div class="plan-name">Yearly Premium</div><div class="plan-desc">2 months free!</div></div>
-            <div><div class="plan-price">Rs.1990</div><div class="plan-period">per year</div></div>
-          </div>
-          <ul class="plan-feats"><li>Everything in Monthly</li><li>Save Rs.398</li><li>Early access features</li></ul>
-        </div>
-      </div>
-    </div>
-
     <div id="tab-profile" class="tab-page">
       <div class="prof-header">
         <div class="prof-avatar" id="profAvatar">U</div>
@@ -292,7 +267,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <div class="s-title">Account</div>
         <div class="s-card">
           <div class="s-row"><div class="s-icon">⭐</div><div class="s-info"><div class="s-label">Plan</div><div class="s-sub">Free — 5 searches/day</div></div></div>
-          <div class="s-row" onclick="switchTab('premium')"><div class="s-icon">👑</div><div class="s-info"><div class="s-label">Get Premium</div><div class="s-sub">Rs.199/month</div></div><div class="s-arrow">›</div></div>
+          
         </div>
       </div>
       <div class="s-group">
@@ -308,28 +283,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <div class="bottom-nav">
     <button class="nav-tab active" data-tab="search" onclick="switchTab('search')"><span class="nav-tab-icon">🔍</span><span class="nav-tab-label">Search</span></button>
     <button class="nav-tab" data-tab="history" onclick="switchTab('history')"><span class="nav-tab-icon">📜</span><span class="nav-tab-label">History</span></button>
-    <button class="nav-tab" data-tab="premium" onclick="switchTab('premium')"><span class="nav-tab-icon">👑</span><span class="nav-tab-label">Premium</span></button>
+    
     <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')"><span class="nav-tab-icon">👤</span><span class="nav-tab-label">Profile</span></button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="payModal">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Payment</div>
-    <div class="modal-sub" id="payDesc">Monthly Premium — Rs.199</div>
-    <div class="pay-box">
-      <div class="pay-label">EasyPaisa / JazzCash</div>
-      <div class="pay-num">0300-0000000</div>
-      <div class="pay-name">ClipIQ — GOGEE16</div>
-    </div>
-    <div class="pay-steps">
-      <div class="pay-step"><div class="step-n">1</div><div class="step-t">Send payment to the number above</div></div>
-      <div class="pay-step"><div class="step-n">2</div><div class="step-t">Take a screenshot of payment</div></div>
-      <div class="pay-step"><div class="step-n">3</div><div class="step-t">Send on WhatsApp — activated within 24 hours!</div></div>
-    </div>
-    <button class="wa-btn" onclick="sendWA()">Send on WhatsApp</button>
-    <button class="modal-cancel" onclick="closePay()">Cancel</button>
   </div>
 </div>
 
@@ -363,8 +318,17 @@ let user=null, isPremium=false, searchesLeft=5, currentFile=null, currentResult=
 let localHistory = JSON.parse(localStorage.getItem('ciq_h')||'[]');
 
 // AUTH
+const ADMIN_EMAIL = 'bye4good@gmail.com';
+
 auth.onAuthStateChanged(u=>{
-  if(u){ user=u; document.getElementById('loginScreen').classList.remove('active'); document.getElementById('appScreen').classList.add('active'); setupUser(u); }
+  if(u){ 
+    user=u; 
+    // Unlimited searches for admin
+    if(u.email === ADMIN_EMAIL){ searchesLeft = 99999; isPremium = true; }
+    document.getElementById('loginScreen').classList.remove('active'); 
+    document.getElementById('appScreen').classList.add('active'); 
+    setupUser(u); 
+  }
   else { user=null; document.getElementById('loginScreen').classList.add('active'); document.getElementById('appScreen').classList.remove('active'); }
 });
 
@@ -393,10 +357,10 @@ document.getElementById('videoInput').onchange = e => { if(e.target.files[0]) ha
 
 function handleFile(f){
   if(!f.type.startsWith('video/')){ toast('Video files only!','error'); return; }
-  if(f.size > 15*1024*1024){ toast('File must be under 15MB!','error'); return; }
+  if(f.size > 50*1024*1024){ toast('File must be under 50MB!','error'); return; }
   currentFile = f;
   document.getElementById('previewVid').src = URL.createObjectURL(f);
-  document.getElementById('previewName').textContent = f.name;
+  document.getElementById('previewName').textContent = f.name + ' (' + (f.size/1024/1024).toFixed(1) + 'MB)';
   document.getElementById('previewWrap').style.display = 'block';
   document.getElementById('uploadZone').style.display = 'none';
   document.getElementById('resultWrap').style.display = 'none';
@@ -416,9 +380,9 @@ function clearFile(){
 }
 
 function updateUI(){
-  document.getElementById('searchBtn').disabled = !(currentFile&&(isPremium||searchesLeft>0));
-  document.getElementById('limitBox').style.display = (!isPremium&&searchesLeft<=0)?'block':'none';
-  document.getElementById('creditsEl').innerHTML = isPremium ? '⭐ <b>Premium</b>' : `🔍 <b>${searchesLeft}</b>/5`;
+  document.getElementById('searchBtn').disabled = !(currentFile&&searchesLeft>0);
+  document.getElementById('limitBox').style.display = (searchesLeft<=0)?'block':'none';
+  document.getElementById('creditsEl').innerHTML = `🔍 <b>${searchesLeft}</b>/5`;
 }
 
 function setStep(n){
@@ -482,7 +446,7 @@ async function fetchTMDB(title){
 // MAIN SEARCH
 async function doSearch(){
   if(!currentFile||!user) return;
-  if(!isPremium&&searchesLeft<=0){ toast('Free searches used up!','error'); return; }
+  if(searchesLeft<=0){ toast('Daily limit reached! Come back tomorrow.','error'); return; }
 
   document.getElementById('searchBtn').style.display = 'none';
   document.getElementById('loadingWrap').style.display = 'block';
@@ -527,7 +491,7 @@ IMPORTANT:
 - Never guess randomly
 - Pure JSON only, no backticks` });
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${GEMINI_KEY}`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2, maxOutputTokens:500} })
@@ -601,7 +565,7 @@ IMPORTANT:
     }
 
     document.getElementById('resultWrap').style.display = 'block';
-    if(!isPremium) searchesLeft = Math.max(0, searchesLeft-1);
+    searchesLeft = Math.max(0, searchesLeft-1);
 
   }catch(e){
     document.getElementById('errorBox').textContent = '❌ ' + e.message;
@@ -614,6 +578,69 @@ IMPORTANT:
 }
 
 function toB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(f); }); }
+
+// Compress video by extracting and re-encoding frames
+async function compressVideo(file){
+  // If already small enough, return as is
+  if(file.size <= 10*1024*1024) return file;
+  
+  toast('Compressing video...', 'info');
+  
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.onloadedmetadata = async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        // Reduce resolution for compression
+        canvas.width = 480;
+        canvas.height = 270;
+        const ctx = canvas.getContext('2d');
+        const stream = canvas.captureStream(15); // 15fps
+        const chunks = [];
+        
+        const recorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 500000 // 500kbps
+        });
+        
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, {type: 'video/webm'});
+          const compressed = new File([blob], file.name, {type: 'video/webm'});
+          console.log('Compressed: ' + (file.size/1024/1024).toFixed(1) + 'MB -> ' + (compressed.size/1024/1024).toFixed(1) + 'MB');
+          resolve(compressed);
+        };
+        
+        recorder.start();
+        video.play();
+        
+        // Record for max 20 seconds or video duration
+        const duration = Math.min(video.duration * 1000, 20000);
+        
+        const drawFrame = () => {
+          if(!video.paused && !video.ended) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(drawFrame);
+          }
+        };
+        
+        video.onplay = drawFrame;
+        
+        setTimeout(() => {
+          recorder.stop();
+          video.pause();
+        }, duration);
+        
+      } catch(e) {
+        console.log('Compression failed, using original:', e);
+        resolve(file);
+      }
+    };
+    video.onerror = () => resolve(file);
+  });
+}
 
 // HISTORY
 function saveHistory(){
@@ -640,7 +667,7 @@ function renderHistory(){
     d.innerHTML = `<div class="h-thumb">🎬</div><div class="h-info"><div class="h-movie">${item.movie}</div><div class="h-date">${item.date}</div><div class="h-prev">${item.result.substring(0,100)}...</div></div><button class="h-del" onclick="delHistory(${item.id})">🗑️</button>`;
     list.appendChild(d);
   });
-  if(!isPremium&&items.length>=5){
+  if(false){
     const lock=document.createElement('div');
     lock.style.cssText='text-align:center;padding:20px;background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.2);border-radius:14px;margin-top:12px';
     lock.innerHTML=`<div style="font-size:28px;margin-bottom:10px">🔒</div><div style="font-size:13px;color:var(--muted);margin-bottom:14px">Only 5 free searches shown.<br>Get Premium for full history!</div><button onclick="switchTab('premium')" style="background:linear-gradient(135deg,#f5c518,#c87800);color:#000;border:none;border-radius:10px;padding:10px 20px;font-weight:800;font-size:13px;cursor:pointer">Get Premium</button>`;
