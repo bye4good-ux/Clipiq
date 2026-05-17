@@ -225,8 +225,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <div class="film-bars"><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div><div class="film-bar"></div></div>
         <div class="loading-text">Analyzing...</div>
         <div class="loading-steps">
-          <div class="loading-step" id="step1">📤 Uploading video...</div>
-          <div class="loading-step" id="step2">⚙️ Processing...</div>
+          <div class="loading-step" id="step1">🎬 Preparing video...</div>
+          <div class="loading-step" id="step2">📤 Sending to AI...</div>
           <div class="loading-step" id="step3">🤖 AI analyzing...</div>
           <div class="loading-step" id="step4">🎬 Fetching movie details...</div>
         </div>
@@ -513,50 +513,24 @@ async function doSearch(){
   document.getElementById('confidenceBar').style.display = 'none';
 
   try{
-    // Step 1 - Extract frames
+    // Step 1 - Prepare video
     setStep(1);
-    const frames = await extractFrames(currentFile, 4);
-    if(!frames.length) throw new Error('Could not process video');
+    const formData = new FormData();
+    formData.append('video', currentFile);
 
-    // Step 2 - OCR
+    // Step 2 - Sending to AI
     setStep(2);
-    let subtitleText = '';
-    const ocrFrame = frames[0];
-    subtitleText = await detectSubtitle(ocrFrame);
 
-    // Step 3 - Gemini AI
+    // Step 3 - AI analyzing
     setStep(3);
-    const parts = [];
-    frames.forEach(f => parts.push({ inline_data: { mime_type: 'image/jpeg', data: f } }));
-    parts.push({ text: `You are an expert movie and TV show identification AI. Carefully analyze ALL provided video frames.
-
-Subtitles/text detected: ${subtitleText}
-
-Look for:
-- Actor faces
-- Scene locations  
-- Costumes and props
-- Text on screen
-- Visual style and era
-
-Reply with ONLY this JSON, no markdown or extra text:
-{"title":"Exact Movie Title","type":"movie","year":"2004","confidence":85,"actors":["Nicolas Cage"],"genre":"Action","summary":"One line summary"}
-
-IMPORTANT:
-- confidence must be honest (0-100)
-- If not sure, set confidence below 75
-- Never guess randomly
-- Pure JSON only, no backticks` });
-
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2, maxOutputTokens:500} })
+    const res = await fetch('https://white-recipe-e14b.clipiq-api.workers.dev', {
+      method: 'POST',
+      body: formData
     });
 
     const data = await res.json();
-    if(!res.ok) throw new Error(data.error?.message||'API error');
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!res.ok) throw new Error(data.error || 'API error');
+    const text = data.result;
     if(!text) throw new Error('No response received');
 
     let result;
