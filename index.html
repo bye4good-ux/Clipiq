@@ -292,17 +292,27 @@ firebase.initializeApp({
 const auth = firebase.auth();
 const db = firebase.firestore();
 const remoteConfig = firebase.remoteConfig();
-remoteConfig.settings.minimumFetchIntervalMillis = 3600000;
+remoteConfig.settings.minimumFetchIntervalMillis = 0; // Always fetch fresh
 remoteConfig.defaultConfig = { gemini_api_key: '', tmdb_api_key: '' };
 
 let GEMINI_KEY = '';
 let TMDB_KEY = '';
 let selectedPlan = '';
+let keysReady = false;
 
-remoteConfig.fetchAndActivate().then(() => {
-  GEMINI_KEY = remoteConfig.getValue('gemini_api_key').asString();
-  TMDB_KEY = remoteConfig.getValue('tmdb_api_key').asString();
-}).catch(e => console.log('RC error:', e));
+async function loadKeys(){
+  try {
+    await remoteConfig.fetchAndActivate();
+    GEMINI_KEY = remoteConfig.getValue('gemini_api_key').asString();
+    TMDB_KEY = remoteConfig.getValue('tmdb_api_key').asString();
+    keysReady = true;
+    console.log('Keys loaded. Gemini key length:', GEMINI_KEY.length);
+  } catch(e) {
+    console.log('RC fetch error:', e);
+    keysReady = false;
+  }
+}
+loadKeys();
 
 let user=null, isPremium=false, searchesLeft=5, currentFile=null, currentResult='';
 let localHistory = JSON.parse(localStorage.getItem('ciq_h')||'[]');
@@ -461,6 +471,17 @@ async function doSearch(){
   if(!currentFile||!user) return;
   if(!isPremium && searchesLeft<=0){ toast('Daily limit reached! Come back tomorrow.','error'); return; }
 
+  // API key check - wait if still loading
+  if(!GEMINI_KEY || GEMINI_KEY.length < 10){
+    toast('🔄 Keys load ho rahi hain...', '');
+    await loadKeys();
+    if(!GEMINI_KEY || GEMINI_KEY.length < 10){
+      document.getElementById('errorBox').textContent = '❌ Gemini API Key Remote Config se load nahi hui. Firebase Console mein "gemini_api_key" check karein aur Publish karein.';
+      document.getElementById('errorBox').style.display = 'block';
+      return;
+    }
+  }
+
   document.getElementById('searchBtn').style.display = 'none';
   document.getElementById('loadingWrap').style.display = 'block';
   document.getElementById('resultWrap').style.display = 'none';
@@ -471,26 +492,28 @@ async function doSearch(){
   try{
     setStep(1);
     const fileUri = await uploadToFileAPI(currentFile);
-    if(!fileUri) throw new Error("Video upload failed. Check API Key.");
+    if(!fileUri) throw new Error("Video upload failed. Gemini API Key check karein ya dobara try karein.");
 
     setStep(2);
     setStep(3);
 
-    const uniqueSessionId = Date.now() + "_" + Math.random().toString(36).substring(2, 7);
-    const systemInstruction = `Session:${uniqueSessionId}. Identify movie/show from clip. Output ONLY valid raw JSON minified. No markdown blocks. Code keys: t=title, y=year, c=confidence, g=genre, a=actors(array), s=brief plot summary. If unsure, c=0.`;
+    // Fix MIME type for Android videos
+    let mimeType = currentFile.type;
+    if(!mimeType || mimeType === 'application/octet-stream') mimeType = 'video/mp4';
+
+    const systemInstruction = `You are a movie/TV show identifier. Analyze this video clip carefully and identify the movie or TV show. Respond ONLY with minified valid JSON, no markdown, no extra text. Keys: t=title, y=year(string), c=confidence(0-100 integer), g=genre, a=top actors array, s=brief 1-sentence plot summary. If you cannot identify it, set c=0 and t="Unknown".`;
 
     const payload = {
       contents: [{
         parts: [
-          { file_data: { file_uri: fileUri, mime_type: currentFile.type } },
-          { text: "Identify this video clip precisely." }
+          { file_data: { file_uri: fileUri, mime_type: mimeType } },
+          { text: "What movie or TV show is this clip from? Respond in JSON only." }
         ]
       }],
       systemInstruction: { parts: [{ text: systemInstruction }] },
       generationConfig: {
         temperature: 0.1,
-        responseMimeType: "application/json",
-        maxOutputTokens: 150
+        maxOutputTokens: 200
       }
     };
 
@@ -501,14 +524,31 @@ async function doSearch(){
     });
 
     const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if(!text) throw new Error('No clean response received from AI.');
+
+    // Show actual API error if any
+    if(data.error){
+      throw new Error(`Gemini Error: ${data.error.message || JSON.stringify(data.error)}`);
+    }
+
+    // Check for safety block
+    if(data.candidates?.[0]?.finishReason === 'SAFETY'){
+      throw new Error('Video safety filter se block hua. Doosra clip try karein.');
+    }
+
+    let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!rawText) throw new Error(`AI se response nahi mila. (Reason: ${data?.candidates?.[0]?.finishReason || 'unknown'})`);
+
+    // Clean markdown if present
+    rawText = rawText.replace(/```json/gi,'').replace(/```/g,'').trim();
 
     let result;
     try {
-      result = JSON.parse(text.trim());
+      result = JSON.parse(rawText);
     } catch(e) {
-      throw new Error('AI Response parsing failure.');
+      // Try to extract JSON from text
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if(match){ try{ result = JSON.parse(match[0]); }catch(e2){ throw new Error('AI response parse nahi hua: ' + rawText.substring(0,100)); } }
+      else throw new Error('AI ne JSON nahi diya: ' + rawText.substring(0,100));
     }
 
     const confidence = parseInt(result.c)||0;
