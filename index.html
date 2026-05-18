@@ -621,55 +621,79 @@ async function compressVideo(file){
     const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
     video.muted = true;
+    video.playsInline = true;
+
+    // Safety timeout — agar kuch bhi hang ho to original file wapas karo
+    const safetyTimer = setTimeout(() => {
+      console.log('Compression timeout, using original');
+      resolve(file);
+    }, 35000);
+
     video.onloadedmetadata = async () => {
       try {
         const canvas = document.createElement('canvas');
-        // Reduce resolution for compression
         canvas.width = 480;
         canvas.height = 270;
         const ctx = canvas.getContext('2d');
         const stream = canvas.captureStream(15); // 15fps
         const chunks = [];
-        
+
         const recorder = new MediaRecorder(stream, {
           mimeType: 'video/webm;codecs=vp8',
           videoBitsPerSecond: 500000 // 500kbps
         });
-        
-        recorder.ondataavailable = e => chunks.push(e.data);
+
+        recorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
         recorder.onstop = () => {
+          clearTimeout(safetyTimer);
           const blob = new Blob(chunks, {type: 'video/webm'});
-          const compressed = new File([blob], file.name, {type: 'video/webm'});
+          // Agar compression ne file badi kar di to original use karo
+          const compressed = blob.size < file.size
+            ? new File([blob], file.name.replace(/\.[^.]+$/, '.webm'), {type: 'video/webm'})
+            : file;
           console.log('Compressed: ' + (file.size/1024/1024).toFixed(1) + 'MB -> ' + (compressed.size/1024/1024).toFixed(1) + 'MB');
           resolve(compressed);
         };
-        
-        recorder.start();
-        video.play();
-        
-        // Record for max 20 seconds or video duration
-        const duration = Math.min(video.duration * 1000, 20000);
-        
-        const drawFrame = () => {
-          if(!video.paused && !video.ended) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            requestAnimationFrame(drawFrame);
-          }
+
+        recorder.start(200); // har 200ms pe chunk lo
+
+        // FIX: video.duration kabhi Infinity ya NaN ho sakta hai
+        // Isliye safe fallback use karo — max 20 seconds
+        let rawDuration = video.duration;
+        if (!isFinite(rawDuration) || isNaN(rawDuration) || rawDuration <= 0) {
+          rawDuration = 20; // default 20 seconds
+        }
+        const recordMs = Math.min(rawDuration * 1000, 20000);
+
+        // FIX: requestAnimationFrame recursion ki jagah setInterval use karo
+        // rAF infinite recursion se "Maximum call stack size exceeded" aata tha
+        let drawInterval = null;
+
+        video.onplay = () => {
+          drawInterval = setInterval(() => {
+            if (!video.paused && !video.ended) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            } else {
+              clearInterval(drawInterval);
+            }
+          }, 66); // ~15fps
         };
-        
-        video.onplay = drawFrame;
-        
+
+        await video.play().catch(() => {});
+
         setTimeout(() => {
-          recorder.stop();
+          clearInterval(drawInterval);
+          if (recorder.state === 'recording') recorder.stop();
           video.pause();
-        }, duration);
-        
+        }, recordMs);
+
       } catch(e) {
+        clearTimeout(safetyTimer);
         console.log('Compression failed, using original:', e);
         resolve(file);
       }
     };
-    video.onerror = () => resolve(file);
+    video.onerror = () => { clearTimeout(safetyTimer); resolve(file); };
   });
 }
 
