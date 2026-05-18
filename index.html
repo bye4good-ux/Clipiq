@@ -513,13 +513,16 @@ async function doSearch(){
   document.getElementById('confidenceBar').style.display = 'none';
 
   try{
-    // Step 1 - Prepare video
+    // Step 1 - Video se frames nikalo
     setStep(1);
+    const frames = await extractFrames(currentFile, 5);
+    if(!frames.length) throw new Error('Video se frames nahi nikal sake');
+
+    // Step 2 - Worker ko bhejo
+    setStep(2);
     const formData = new FormData();
     formData.append('video', currentFile);
-
-    // Step 2 - Sending to AI
-    setStep(2);
+    formData.append('frames', JSON.stringify(frames));
 
     // Step 3 - AI analyzing
     setStep(3);
@@ -610,10 +613,67 @@ async function doSearch(){
 
 function toB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(f); }); }
 
-// Compression removed — causes "Maximum call stack size exceeded" on mobile
-// File is sent directly to server which handles it
+// Compress video by extracting and re-encoding frames
 async function compressVideo(file){
-  return file;
+  // If already small enough, return as is
+  if(file.size <= 10*1024*1024) return file;
+  
+  toast('Compressing video...', 'info');
+  
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.onloadedmetadata = async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        // Reduce resolution for compression
+        canvas.width = 480;
+        canvas.height = 270;
+        const ctx = canvas.getContext('2d');
+        const stream = canvas.captureStream(15); // 15fps
+        const chunks = [];
+        
+        const recorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp8',
+          videoBitsPerSecond: 500000 // 500kbps
+        });
+        
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, {type: 'video/webm'});
+          const compressed = new File([blob], file.name, {type: 'video/webm'});
+          console.log('Compressed: ' + (file.size/1024/1024).toFixed(1) + 'MB -> ' + (compressed.size/1024/1024).toFixed(1) + 'MB');
+          resolve(compressed);
+        };
+        
+        recorder.start();
+        video.play();
+        
+        // Record for max 20 seconds or video duration
+        const duration = Math.min(video.duration * 1000, 20000);
+        
+        const drawFrame = () => {
+          if(!video.paused && !video.ended) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(drawFrame);
+          }
+        };
+        
+        video.onplay = drawFrame;
+        
+        setTimeout(() => {
+          recorder.stop();
+          video.pause();
+        }, duration);
+        
+      } catch(e) {
+        console.log('Compression failed, using original:', e);
+        resolve(file);
+      }
+    };
+    video.onerror = () => resolve(file);
+  });
 }
 
 // HISTORY
