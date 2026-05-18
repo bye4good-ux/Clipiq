@@ -610,91 +610,10 @@ async function doSearch(){
 
 function toB64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(f); }); }
 
-// Compress video by extracting and re-encoding frames
+// Compression removed — causes "Maximum call stack size exceeded" on mobile
+// File is sent directly to server which handles it
 async function compressVideo(file){
-  // If already small enough, return as is
-  if(file.size <= 10*1024*1024) return file;
-  
-  toast('Compressing video...', 'info');
-  
-  return new Promise(resolve => {
-    const video = document.createElement('video');
-    video.src = URL.createObjectURL(file);
-    video.muted = true;
-    video.playsInline = true;
-
-    // Safety timeout — agar kuch bhi hang ho to original file wapas karo
-    const safetyTimer = setTimeout(() => {
-      console.log('Compression timeout, using original');
-      resolve(file);
-    }, 35000);
-
-    video.onloadedmetadata = async () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 480;
-        canvas.height = 270;
-        const ctx = canvas.getContext('2d');
-        const stream = canvas.captureStream(15); // 15fps
-        const chunks = [];
-
-        const recorder = new MediaRecorder(stream, {
-          mimeType: 'video/webm;codecs=vp8',
-          videoBitsPerSecond: 500000 // 500kbps
-        });
-
-        recorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = () => {
-          clearTimeout(safetyTimer);
-          const blob = new Blob(chunks, {type: 'video/webm'});
-          // Agar compression ne file badi kar di to original use karo
-          const compressed = blob.size < file.size
-            ? new File([blob], file.name.replace(/\.[^.]+$/, '.webm'), {type: 'video/webm'})
-            : file;
-          console.log('Compressed: ' + (file.size/1024/1024).toFixed(1) + 'MB -> ' + (compressed.size/1024/1024).toFixed(1) + 'MB');
-          resolve(compressed);
-        };
-
-        recorder.start(200); // har 200ms pe chunk lo
-
-        // FIX: video.duration kabhi Infinity ya NaN ho sakta hai
-        // Isliye safe fallback use karo — max 20 seconds
-        let rawDuration = video.duration;
-        if (!isFinite(rawDuration) || isNaN(rawDuration) || rawDuration <= 0) {
-          rawDuration = 20; // default 20 seconds
-        }
-        const recordMs = Math.min(rawDuration * 1000, 20000);
-
-        // FIX: requestAnimationFrame recursion ki jagah setInterval use karo
-        // rAF infinite recursion se "Maximum call stack size exceeded" aata tha
-        let drawInterval = null;
-
-        video.onplay = () => {
-          drawInterval = setInterval(() => {
-            if (!video.paused && !video.ended) {
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            } else {
-              clearInterval(drawInterval);
-            }
-          }, 66); // ~15fps
-        };
-
-        await video.play().catch(() => {});
-
-        setTimeout(() => {
-          clearInterval(drawInterval);
-          if (recorder.state === 'recording') recorder.stop();
-          video.pause();
-        }, recordMs);
-
-      } catch(e) {
-        clearTimeout(safetyTimer);
-        console.log('Compression failed, using original:', e);
-        resolve(file);
-      }
-    };
-    video.onerror = () => { clearTimeout(safetyTimer); resolve(file); };
-  });
+  return file;
 }
 
 // HISTORY
