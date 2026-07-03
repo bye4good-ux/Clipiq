@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-remote-config-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
 :root{--red:#e50914;--gold:#f5c518;--bg:#07070f;--bg3:#141420;--card:#10101a;--card2:#181826;--border:#22223a;--border2:#2a2a45;--text:#ededf5;--muted:#6666aa;--green:#00e676}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -156,6 +157,28 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .step-t{font-size:13px;color:var(--muted);line-height:1.6}
 .wa-btn{width:100%;background:linear-gradient(135deg,#25d366,#128c7e);color:white;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px}
 .modal-cancel{width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:12px;padding:13px;font-size:14px;cursor:pointer}
+.fx-field{margin-bottom:16px}
+.fx-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;display:block}
+.fx-interval-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:10px 14px}
+.fx-interval-row input[type=number]{flex:1;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:1px;outline:none;width:60px}
+.fx-unit{font-size:13px;color:var(--muted);font-weight:600}
+.fx-stepper{display:flex;gap:6px}
+.fx-step-btn{width:34px;height:34px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:16px;font-weight:800;cursor:pointer}
+.fx-presets{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.fx-preset{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--muted);font-weight:600;cursor:pointer;transition:all .2s}
+.fx-preset.active{background:rgba(229,9,20,.12);border-color:var(--red);color:var(--red)}
+.fx-meta{font-size:12px;color:var(--muted);margin-top:10px;padding:10px 14px;background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.2);border-radius:12px;display:none}
+.fx-meta b{color:var(--gold)}
+.fx-progress-wrap{display:none;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px 20px;text-align:center;margin-bottom:16px}
+.fx-progress-bar{height:10px;background:var(--bg3);border-radius:20px;overflow:hidden;margin:14px 0 8px}
+.fx-progress-fill{height:100%;width:0%;background:linear-gradient(135deg,var(--red),var(--gold));transition:width .2s ease;border-radius:20px}
+.fx-progress-text{font-size:13px;color:var(--muted);font-weight:600}
+.fx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.fx-thumb{position:relative;border-radius:10px;overflow:hidden;background:var(--bg3);aspect-ratio:16/9}
+.fx-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.fx-thumb-time{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);color:#fff;font-size:10px;font-weight:700;padding:4px 6px}
+.fx-count-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:14px}
+.fx-count-pill b{color:var(--green)}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--border2);border-radius:14px;padding:12px 20px;font-size:13px;font-weight:600;z-index:300;transition:all .35s;opacity:0;pointer-events:none;white-space:nowrap;max-width:90vw}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.success{border-color:var(--green);color:var(--green)}
@@ -257,6 +280,66 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="h-list" id="hList"></div>
     </div>
 
+    <div id="tab-frames" class="tab-page">
+      <div class="page-title">Frame Extractor</div>
+      <div class="page-sub">Upload a video, choose an interval, download frames as a ZIP</div>
+
+      <div class="upload-zone" id="fxUploadZone" onclick="document.getElementById('fxVideoInput').click()">
+        <span class="upload-icon">🎞️</span>
+        <div class="upload-title">Upload Video</div>
+        <p class="upload-sub">Any length • Tap to select • Works fully in-browser</p>
+        <div class="chips">
+          <span class="chip">MP4</span><span class="chip">MOV</span><span class="chip">AVI</span><span class="chip">MKV</span><span class="chip">WEBM</span>
+        </div>
+        <input type="file" id="fxVideoInput" accept="video/*">
+      </div>
+
+      <div class="preview-wrap" id="fxPreviewWrap">
+        <video id="fxPreviewVid" controls playsinline></video>
+        <div class="preview-info">
+          <span class="preview-name" id="fxPreviewName"></span>
+          <button class="preview-del" onclick="fxClearFile()">Remove</button>
+        </div>
+      </div>
+
+      <div class="fx-meta" id="fxMeta"></div>
+
+      <div class="fx-field">
+        <label class="fx-label">Extract 1 frame every</label>
+        <div class="fx-interval-row">
+          <div class="fx-stepper">
+            <button class="fx-step-btn" onclick="fxAdjustInterval(-1)">−</button>
+          </div>
+          <input type="number" id="fxInterval" value="1" min="0.1" step="0.1" oninput="fxSyncPresets()">
+          <span class="fx-unit">minute(s)</span>
+          <div class="fx-stepper">
+            <button class="fx-step-btn" onclick="fxAdjustInterval(1)">+</button>
+          </div>
+        </div>
+        <div class="fx-presets" id="fxPresets">
+          <span class="fx-preset" data-val="0.5" onclick="fxSetPreset(0.5)">Every 30s</span>
+          <span class="fx-preset active" data-val="1" onclick="fxSetPreset(1)">Every 1 min</span>
+          <span class="fx-preset" data-val="2" onclick="fxSetPreset(2)">Every 2 min</span>
+          <span class="fx-preset" data-val="5" onclick="fxSetPreset(5)">Every 5 min</span>
+          <span class="fx-preset" data-val="10" onclick="fxSetPreset(10)">Every 10 min</span>
+        </div>
+      </div>
+
+      <button class="search-btn" id="fxExtractBtn" disabled onclick="fxExtractFrames()">EXTRACT FRAMES</button>
+
+      <div class="fx-progress-wrap" id="fxProgressWrap">
+        <div class="loading-text">Extracting frames...</div>
+        <div class="fx-progress-bar"><div class="fx-progress-fill" id="fxProgressFill"></div></div>
+        <div class="fx-progress-text" id="fxProgressText">0 / 0 frames</div>
+      </div>
+
+      <div id="fxResultWrap" style="display:none">
+        <div class="fx-count-pill">🖼️ <b id="fxFrameCount">0</b> frames extracted</div>
+        <div class="fx-grid" id="fxGrid"></div>
+        <button class="search-btn" style="background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="fxDownloadZip()">DOWNLOAD ZIP</button>
+      </div>
+    </div>
+
     <div id="tab-profile" class="tab-page">
       <div class="prof-header">
         <div class="prof-avatar" id="profAvatar">U</div>
@@ -283,7 +366,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <div class="bottom-nav">
     <button class="nav-tab active" data-tab="search" onclick="switchTab('search')"><span class="nav-tab-icon">🔍</span><span class="nav-tab-label">Search</span></button>
     <button class="nav-tab" data-tab="history" onclick="switchTab('history')"><span class="nav-tab-icon">📜</span><span class="nav-tab-label">History</span></button>
-    
+    <button class="nav-tab" data-tab="frames" onclick="switchTab('frames')"><span class="nav-tab-icon">🎞️</span><span class="nav-tab-label">Frames</span></button>
     <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')"><span class="nav-tab-icon">👤</span><span class="nav-tab-label">Profile</span></button>
   </div>
 </div>
@@ -728,6 +811,147 @@ function copyText(t){ navigator.clipboard.writeText(t).then(()=>toast('Copied!',
 function openPay(plan){ selectedPlan=plan; document.getElementById('payDesc').textContent=plan==='monthly'?'Monthly Premium — Rs.199/month':'Yearly Premium — Rs.1990/year'; document.getElementById('payModal').classList.add('open'); }
 function closePay(){ document.getElementById('payModal').classList.remove('open'); }
 function sendWA(){ const msg=encodeURIComponent(`ClipIQ ${selectedPlan==='monthly'?'Monthly Rs.199':'Yearly Rs.1990'}\nEmail: ${user?.email||''}`); window.open(`https://wa.me/923000000000?text=${msg}`,'_blank'); closePay(); }
+
+// FRAME EXTRACTOR TOOL
+let fxFile = null, fxFrames = []; // fxFrames: [{blob, time}]
+
+document.getElementById('fxVideoInput').onchange = e => { if(e.target.files[0]) fxHandleFile(e.target.files[0]); };
+
+function fxHandleFile(f){
+  if(!f.type.startsWith('video/')){ toast('Video files only!','error'); return; }
+  fxFile = f;
+  const vid = document.getElementById('fxPreviewVid');
+  vid.src = URL.createObjectURL(f);
+  document.getElementById('fxPreviewName').textContent = f.name + ' (' + (f.size/1024/1024).toFixed(1) + 'MB)';
+  document.getElementById('fxPreviewWrap').style.display = 'block';
+  document.getElementById('fxUploadZone').style.display = 'none';
+  document.getElementById('fxResultWrap').style.display = 'none';
+  document.getElementById('fxExtractBtn').disabled = false;
+  fxFrames = [];
+  vid.onloadedmetadata = () => {
+    const dur = vid.duration;
+    const mins = Math.floor(dur/60), secs = Math.round(dur%60);
+    const meta = document.getElementById('fxMeta');
+    meta.style.display = 'block';
+    fxUpdateEstimate();
+  };
+}
+
+function fxClearFile(){
+  fxFile = null; fxFrames = [];
+  document.getElementById('fxPreviewVid').src = '';
+  document.getElementById('fxPreviewWrap').style.display = 'none';
+  document.getElementById('fxUploadZone').style.display = 'block';
+  document.getElementById('fxVideoInput').value = '';
+  document.getElementById('fxResultWrap').style.display = 'none';
+  document.getElementById('fxMeta').style.display = 'none';
+  document.getElementById('fxExtractBtn').disabled = true;
+}
+
+function fxAdjustInterval(dir){
+  const inp = document.getElementById('fxInterval');
+  let v = parseFloat(inp.value)||1;
+  v = Math.max(0.1, +(v + dir*0.5).toFixed(1));
+  inp.value = v;
+  fxSyncPresets();
+}
+
+function fxSetPreset(val){
+  document.getElementById('fxInterval').value = val;
+  fxSyncPresets();
+}
+
+function fxSyncPresets(){
+  const v = parseFloat(document.getElementById('fxInterval').value)||1;
+  document.querySelectorAll('.fx-preset').forEach(p=>{
+    p.classList.toggle('active', Math.abs(parseFloat(p.dataset.val)-v) < 0.001);
+  });
+  fxUpdateEstimate();
+}
+
+function fxUpdateEstimate(){
+  const vid = document.getElementById('fxPreviewVid');
+  const meta = document.getElementById('fxMeta');
+  if(!vid.duration || !isFinite(vid.duration)) return;
+  const intervalMin = parseFloat(document.getElementById('fxInterval').value)||1;
+  const intervalSec = intervalMin*60;
+  const estCount = Math.max(1, Math.floor(vid.duration/intervalSec) + 1);
+  const dm = Math.floor(vid.duration/60), ds = Math.round(vid.duration%60);
+  meta.innerHTML = `Video length: <b>${dm}m ${ds}s</b> — will extract approx. <b>${estCount}</b> frame(s) at this interval`;
+}
+
+async function fxExtractFrames(){
+  if(!fxFile) return;
+  const intervalMin = parseFloat(document.getElementById('fxInterval').value);
+  if(!intervalMin || intervalMin <= 0){ toast('Enter a valid interval','error'); return; }
+  const intervalSec = intervalMin*60;
+
+  document.getElementById('fxExtractBtn').disabled = true;
+  document.getElementById('fxResultWrap').style.display = 'none';
+  const progWrap = document.getElementById('fxProgressWrap');
+  const progFill = document.getElementById('fxProgressFill');
+  const progText = document.getElementById('fxProgressText');
+  progWrap.style.display = 'block';
+  progFill.style.width = '0%';
+
+  const video = document.createElement('video');
+  video.src = URL.createObjectURL(fxFile);
+  video.muted = true;
+
+  await new Promise(res => { video.onloadedmetadata = res; });
+
+  const duration = video.duration;
+  const totalFrames = Math.max(1, Math.floor(duration/intervalSec) + 1);
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 360;
+  const ctx = canvas.getContext('2d');
+
+  fxFrames = [];
+  const grid = document.getElementById('fxGrid');
+  grid.innerHTML = '';
+
+  for(let i=0; i<totalFrames; i++){
+    const t = Math.min(i*intervalSec, duration);
+    await new Promise(r=>{ video.currentTime = t; video.onseeked = r; });
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(r=> canvas.toBlob(r, 'image/jpeg', 0.85));
+    const mm = Math.floor(t/60), ss = Math.floor(t%60);
+    const label = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+    fxFrames.push({ blob, label, index:i+1 });
+
+    const thumb = document.createElement('div');
+    thumb.className = 'fx-thumb';
+    thumb.innerHTML = `<img src="${URL.createObjectURL(blob)}"><div class="fx-thumb-time">${label}</div>`;
+    grid.appendChild(thumb);
+
+    const pct = Math.round(((i+1)/totalFrames)*100);
+    progFill.style.width = pct+'%';
+    progText.textContent = `${i+1} / ${totalFrames} frames`;
+  }
+
+  progWrap.style.display = 'none';
+  document.getElementById('fxFrameCount').textContent = fxFrames.length;
+  document.getElementById('fxResultWrap').style.display = 'block';
+  document.getElementById('fxExtractBtn').disabled = false;
+  toast('Frames extracted!','success');
+}
+
+async function fxDownloadZip(){
+  if(!fxFrames.length){ toast('No frames to download','error'); return; }
+  toast('Zipping frames...','');
+  const zip = new JSZip();
+  fxFrames.forEach(f=>{
+    const filename = `frame_${String(f.index).padStart(3,'0')}_${f.label.replace(':','-')}.jpg`;
+    zip.file(filename, f.blob);
+  });
+  const content = await zip.generateAsync({type:'blob'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(content);
+  a.download = (fxFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '_frames.zip';
+  a.click();
+  toast('Downloaded!','success');
+}
 
 // TOAST
 function toast(msg, type=''){
