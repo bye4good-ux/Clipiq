@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-remote-config-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
 <style>
 :root{--red:#e50914;--gold:#f5c518;--bg:#07070f;--bg3:#141420;--card:#10101a;--card2:#181826;--border:#22223a;--border2:#2a2a45;--text:#ededf5;--muted:#6666aa;--green:#00e676}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -182,6 +183,19 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .fx-count-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:14px}
 .fx-count-pill b{color:var(--green)}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--border2);border-radius:14px;padding:12px 20px;font-size:13px;font-weight:600;z-index:300;transition:all .35s;opacity:0;pointer-events:none;white-space:nowrap;max-width:90vw}
+.vc-toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.vc-toggle-label{font-size:14px;font-weight:700;color:var(--text)}
+.vc-toggle-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.vc-switch{position:relative;width:46px;height:26px;flex-shrink:0}
+.vc-switch input{opacity:0;width:0;height:0}
+.vc-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--bg3);border:1px solid var(--border);border-radius:20px;transition:.2s}
+.vc-slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:var(--muted);border-radius:50%;transition:.2s}
+.vc-switch input:checked + .vc-slider{background:linear-gradient(135deg,var(--red),var(--gold));border-color:transparent}
+.vc-switch input:checked + .vc-slider:before{transform:translateX(20px);background:#fff}
+.vc-compare{display:flex;gap:10px;margin:14px 0}
+.vc-compare-box{flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center}
+.vc-compare-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.vc-compare-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.success{border-color:var(--green);color:var(--green)}
 .toast.error{border-color:var(--red);color:#ff6b6b}
@@ -408,6 +422,65 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       </div>
     </div>
 
+    <div id="tab-voice" class="tab-page">
+      <div class="page-title">Voice Cleaner</div>
+      <div class="page-sub">Noise reduce, silence trim & normalize apni audio</div>
+
+      <div class="upload-zone" id="vcUploadZone" onclick="document.getElementById('vcAudioInput').click()">
+        <span class="upload-icon">🎙️</span>
+        <div class="upload-title">Upload Audio</div>
+        <p class="upload-sub">MP3, WAV, M4A • Fully in-browser processing</p>
+        <div class="chips"><span class="chip">MP3</span><span class="chip">WAV</span><span class="chip">M4A</span><span class="chip">OGG</span></div>
+        <input type="file" id="vcAudioInput" accept="audio/*">
+      </div>
+
+      <div class="preview-wrap" id="vcPreviewWrap">
+        <audio id="vcOrigAudio" controls style="width:100%"></audio>
+        <div class="preview-info">
+          <span class="preview-name" id="vcPreviewName"></span>
+          <button class="preview-del" onclick="vcClearFile()">Remove</button>
+        </div>
+      </div>
+
+      <div class="vc-toggle-row">
+        <div><div class="vc-toggle-label">🔇 Noise Reduction</div><div class="vc-toggle-sub">Background hiss/hum kam karo</div></div>
+        <label class="vc-switch"><input type="checkbox" id="vcNoiseToggle" checked><span class="vc-slider"></span></label>
+      </div>
+      <div class="vc-toggle-row">
+        <div><div class="vc-toggle-label">✂️ Silence Trim</div><div class="vc-toggle-sub">Lambi khamoshi/pauses kaato</div></div>
+        <label class="vc-switch"><input type="checkbox" id="vcSilenceToggle" checked><span class="vc-slider"></span></label>
+      </div>
+      <div class="vc-toggle-row">
+        <div><div class="vc-toggle-label">📊 Normalize</div><div class="vc-toggle-sub">Awaz consistent loud/clear banao</div></div>
+        <label class="vc-switch"><input type="checkbox" id="vcNormalizeToggle" checked><span class="vc-slider"></span></label>
+      </div>
+
+      <div class="fx-field">
+        <label class="fx-label">Output Format</label>
+        <div class="fx-presets">
+          <span class="fx-preset" data-fmt="wav" onclick="vcSetFormat('wav')">🎵 WAV (Lossless, bari file)</span>
+          <span class="fx-preset active" data-fmt="mp3" onclick="vcSetFormat('mp3')">🎧 MP3 (Choti file)</span>
+        </div>
+      </div>
+
+      <button class="search-btn" id="vcProcessBtn" disabled onclick="vcProcessAudio()" style="margin-top:8px">CLEAN AUDIO</button>
+
+      <div class="fx-progress-wrap" id="vcProgressWrap">
+        <div class="loading-text">Processing audio...</div>
+        <div class="fx-progress-bar"><div class="fx-progress-fill" id="vcProgressFill"></div></div>
+        <div class="fx-progress-text" id="vcProgressText">Please wait</div>
+      </div>
+
+      <div id="vcResultWrap" style="display:none;margin-top:10px">
+        <div class="vc-compare">
+          <div class="vc-compare-box"><div class="vc-compare-label">Original</div><div class="vc-compare-val" id="vcOrigDur">0:00</div></div>
+          <div class="vc-compare-box"><div class="vc-compare-label">Cleaned</div><div class="vc-compare-val" id="vcCleanDur">0:00</div></div>
+        </div>
+        <audio id="vcCleanAudio" controls style="width:100%;margin-bottom:12px"></audio>
+        <button class="search-btn" style="background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="vcDownloadAudio()">DOWNLOAD CLEANED AUDIO</button>
+      </div>
+    </div>
+
     <div id="tab-profile" class="tab-page">
       <div class="prof-header">
         <div class="prof-avatar" id="profAvatar">U</div>
@@ -435,6 +508,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <button class="nav-tab active" data-tab="search" onclick="switchTab('search')"><span class="nav-tab-icon">🔍</span><span class="nav-tab-label">Search</span></button>
     <button class="nav-tab" data-tab="history" onclick="switchTab('history')"><span class="nav-tab-icon">📜</span><span class="nav-tab-label">History</span></button>
     <button class="nav-tab" data-tab="frames" onclick="switchTab('frames')"><span class="nav-tab-icon">🎞️</span><span class="nav-tab-label">Frames</span></button>
+    <button class="nav-tab" data-tab="voice" onclick="switchTab('voice')"><span class="nav-tab-icon">🎙️</span><span class="nav-tab-label">Voice</span></button>
     <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')"><span class="nav-tab-icon">👤</span><span class="nav-tab-label">Profile</span></button>
   </div>
 </div>
@@ -1255,6 +1329,277 @@ function vmDownloadVideo(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(vmVideoBlob);
   a.download = (fxFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '_narrated.webm';
+  a.click();
+}
+
+// VOICE CLEANER TOOL
+let vcFile = null, vcCleanBlob = null, vcOutputFormat = 'mp3';
+
+function vcSetFormat(fmt){
+  vcOutputFormat = fmt;
+  document.querySelectorAll('#tab-voice .fx-preset').forEach(p=>{
+    p.classList.toggle('active', p.dataset.fmt === fmt);
+  });
+}
+
+document.getElementById('vcAudioInput').onchange = e => { if(e.target.files[0]) vcHandleFile(e.target.files[0]); };
+
+function vcHandleFile(f){
+  if(!f.type.startsWith('audio/')){ toast('Audio files only!','error'); return; }
+  vcFile = f;
+  vcCleanBlob = null;
+  document.getElementById('vcOrigAudio').src = URL.createObjectURL(f);
+  document.getElementById('vcPreviewName').textContent = f.name + ' (' + (f.size/1024/1024).toFixed(1) + 'MB)';
+  document.getElementById('vcPreviewWrap').style.display = 'block';
+  document.getElementById('vcUploadZone').style.display = 'none';
+  document.getElementById('vcResultWrap').style.display = 'none';
+  document.getElementById('vcProcessBtn').disabled = false;
+}
+
+function vcClearFile(){
+  vcFile = null; vcCleanBlob = null;
+  document.getElementById('vcOrigAudio').src = '';
+  document.getElementById('vcPreviewWrap').style.display = 'none';
+  document.getElementById('vcUploadZone').style.display = 'block';
+  document.getElementById('vcAudioInput').value = '';
+  document.getElementById('vcResultWrap').style.display = 'none';
+  document.getElementById('vcProcessBtn').disabled = true;
+}
+
+function vcFormatTime(s){
+  const m = Math.floor(s/60), ss = Math.floor(s%60);
+  return `${m}:${String(ss).padStart(2,'0')}`;
+}
+
+// Convert AudioBuffer -> 16-bit PCM WAV Blob
+function vcBufferToWav(buffer){
+  const numCh = buffer.numberOfChannels;
+  const len = buffer.length * numCh * 2 + 44;
+  const arrBuf = new ArrayBuffer(len);
+  const view = new DataView(arrBuf);
+  const sampleRate = buffer.sampleRate;
+
+  function writeStr(offset, str){ for(let i=0;i<str.length;i++) view.setUint8(offset+i, str.charCodeAt(i)); }
+
+  writeStr(0,'RIFF'); view.setUint32(4, len-8, true); writeStr(8,'WAVE');
+  writeStr(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
+  view.setUint16(22,numCh,true); view.setUint32(24,sampleRate,true);
+  view.setUint32(28,sampleRate*numCh*2,true); view.setUint16(32,numCh*2,true); view.setUint16(34,16,true);
+  writeStr(36,'data'); view.setUint32(40, buffer.length*numCh*2, true);
+
+  const channels = [];
+  for(let c=0;c<numCh;c++) channels.push(buffer.getChannelData(c));
+  let offset = 44;
+  for(let i=0;i<buffer.length;i++){
+    for(let c=0;c<numCh;c++){
+      let s = Math.max(-1, Math.min(1, channels[c][i]));
+      view.setInt16(offset, s<0 ? s*0x8000 : s*0x7FFF, true);
+      offset += 2;
+    }
+  }
+  return new Blob([arrBuf], {type:'audio/wav'});
+}
+
+// Convert AudioBuffer -> MP3 Blob using lamejs
+function vcBufferToMp3(buffer){
+  const numCh = Math.min(2, buffer.numberOfChannels);
+  const sampleRate = buffer.sampleRate;
+  const kbps = 128;
+  const encoder = new lamejs.Mp3Encoder(numCh, sampleRate, kbps);
+  const blockSize = 1152;
+  const mp3Data = [];
+
+  function floatTo16(data){
+    const out = new Int16Array(data.length);
+    for(let i=0;i<data.length;i++){
+      const s = Math.max(-1, Math.min(1, data[i]));
+      out[i] = s<0 ? s*0x8000 : s*0x7FFF;
+    }
+    return out;
+  }
+
+  const left = floatTo16(buffer.getChannelData(0));
+  const right = numCh>1 ? floatTo16(buffer.getChannelData(1)) : null;
+
+  for(let i=0; i<left.length; i+=blockSize){
+    const leftChunk = left.subarray(i, i+blockSize);
+    let mp3buf;
+    if(right){
+      const rightChunk = right.subarray(i, i+blockSize);
+      mp3buf = encoder.encodeBuffer(leftChunk, rightChunk);
+    } else {
+      mp3buf = encoder.encodeBuffer(leftChunk);
+    }
+    if(mp3buf.length>0) mp3Data.push(mp3buf);
+  }
+  const end = encoder.flush();
+  if(end.length>0) mp3Data.push(end);
+  return new Blob(mp3Data, {type:'audio/mp3'});
+}
+
+async function vcProcessAudio(){
+  if(!vcFile) return;
+  const doNoise = document.getElementById('vcNoiseToggle').checked;
+  const doSilence = document.getElementById('vcSilenceToggle').checked;
+  const doNormalize = document.getElementById('vcNormalizeToggle').checked;
+
+  document.getElementById('vcProcessBtn').disabled = true;
+  document.getElementById('vcResultWrap').style.display = 'none';
+  const progWrap = document.getElementById('vcProgressWrap');
+  const progFill = document.getElementById('vcProgressFill');
+  const progText = document.getElementById('vcProgressText');
+  progWrap.style.display = 'block';
+  progFill.style.width = '10%';
+  progText.textContent = 'Decoding audio...';
+
+  try{
+    const arrBuf = await vcFile.arrayBuffer();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    let audioBuffer = await ctx.decodeAudioData(arrBuf);
+    const origDuration = audioBuffer.duration;
+
+    // 1. Noise reduction via high-pass + low-pass filtering (removes rumble + hiss frequencies)
+    if(doNoise){
+      progText.textContent = 'Reducing noise...';
+      progFill.style.width = '35%';
+      const offline = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
+      const src = offline.createBufferSource();
+      src.buffer = audioBuffer;
+      const highpass = offline.createBiquadFilter();
+      highpass.type = 'highpass'; highpass.frequency.value = 90; highpass.Q.value = 0.7;
+      const lowpass = offline.createBiquadFilter();
+      lowpass.type = 'lowpass'; lowpass.frequency.value = 8000; lowpass.Q.value = 0.7;
+      src.connect(highpass); highpass.connect(lowpass); lowpass.connect(offline.destination);
+      src.start();
+      audioBuffer = await offline.startRendering();
+
+      // soft noise gate on top of filtering
+      const gateWindow = Math.floor(audioBuffer.sampleRate * 0.02); // 20ms windows
+      for(let c=0;c<audioBuffer.numberOfChannels;c++){
+        const data = audioBuffer.getChannelData(c);
+        let maxRms = 0;
+        const rmsVals = [];
+        for(let i=0;i<data.length;i+=gateWindow){
+          let sum=0, n=0;
+          for(let j=i;j<Math.min(i+gateWindow,data.length);j++){ sum += data[j]*data[j]; n++; }
+          const rms = Math.sqrt(sum/n);
+          rmsVals.push(rms);
+          if(rms>maxRms) maxRms = rms;
+        }
+        const threshold = maxRms * 0.06;
+        for(let w=0; w<rmsVals.length; w++){
+          if(rmsVals[w] < threshold){
+            const start = w*gateWindow, end = Math.min(start+gateWindow, data.length);
+            for(let j=start;j<end;j++) data[j] *= 0.15;
+          }
+        }
+      }
+    }
+
+    // 2. Silence trimming
+    if(doSilence){
+      progText.textContent = 'Trimming silence...';
+      progFill.style.width = '65%';
+      const sr = audioBuffer.sampleRate;
+      const winSize = Math.floor(sr * 0.02); // 20ms
+      const numCh = audioBuffer.numberOfChannels;
+      const channelsData = [];
+      for(let c=0;c<numCh;c++) channelsData.push(audioBuffer.getChannelData(c));
+      const totalLen = audioBuffer.length;
+
+      // compute RMS per window across all channels combined
+      const numWindows = Math.ceil(totalLen/winSize);
+      const rms = new Float32Array(numWindows);
+      let maxRms = 0;
+      for(let w=0; w<numWindows; w++){
+        const start = w*winSize, end = Math.min(start+winSize, totalLen);
+        let sum=0, n=0;
+        for(let c=0;c<numCh;c++){
+          const data = channelsData[c];
+          for(let j=start;j<end;j++){ sum += data[j]*data[j]; n++; }
+        }
+        rms[w] = Math.sqrt(sum/n);
+        if(rms[w]>maxRms) maxRms = rms[w];
+      }
+      const silenceThresh = maxRms * 0.035;
+      const minSilenceWindows = Math.ceil(0.45 / 0.02); // 450ms
+      const padWindows = Math.ceil(0.12 / 0.02); // keep 120ms padding
+
+      const keepMask = new Uint8Array(numWindows).fill(1);
+      let i = 0;
+      while(i < numWindows){
+        if(rms[i] < silenceThresh){
+          let j = i;
+          while(j < numWindows && rms[j] < silenceThresh) j++;
+          const silLen = j - i;
+          if(silLen > minSilenceWindows){
+            for(let k=i+padWindows; k<j-padWindows; k++) keepMask[k] = 0;
+          }
+          i = j;
+        } else i++;
+      }
+
+      // build new buffer keeping only marked windows
+      let keepSamples = 0;
+      for(let w=0; w<numWindows; w++){ if(keepMask[w]) keepSamples += Math.min(winSize, totalLen-w*winSize); }
+      const newBuffer = ctx.createBuffer(numCh, keepSamples, sr);
+      for(let c=0;c<numCh;c++){
+        const src = channelsData[c];
+        const dst = newBuffer.getChannelData(c);
+        let pos = 0;
+        for(let w=0; w<numWindows; w++){
+          if(keepMask[w]){
+            const start = w*winSize, end = Math.min(start+winSize, totalLen);
+            for(let j=start;j<end;j++) dst[pos++] = src[j];
+          }
+        }
+      }
+      audioBuffer = newBuffer;
+    }
+
+    // 3. Normalize
+    if(doNormalize){
+      progText.textContent = 'Normalizing volume...';
+      progFill.style.width = '85%';
+      let peak = 0;
+      for(let c=0;c<audioBuffer.numberOfChannels;c++){
+        const data = audioBuffer.getChannelData(c);
+        for(let i=0;i<data.length;i++){ const a = Math.abs(data[i]); if(a>peak) peak = a; }
+      }
+      if(peak > 0){
+        const gain = 0.95/peak;
+        for(let c=0;c<audioBuffer.numberOfChannels;c++){
+          const data = audioBuffer.getChannelData(c);
+          for(let i=0;i<data.length;i++) data[i] *= gain;
+        }
+      }
+    }
+
+    progText.textContent = vcOutputFormat==='mp3' ? 'Encoding to MP3...' : 'Encoding...';
+    progFill.style.width = '95%';
+    vcCleanBlob = vcOutputFormat==='mp3' ? vcBufferToMp3(audioBuffer) : vcBufferToWav(audioBuffer);
+    document.getElementById('vcCleanAudio').src = URL.createObjectURL(vcCleanBlob);
+    document.getElementById('vcOrigDur').textContent = vcFormatTime(origDuration);
+    document.getElementById('vcCleanDur').textContent = vcFormatTime(audioBuffer.duration);
+
+    progFill.style.width = '100%';
+    progWrap.style.display = 'none';
+    document.getElementById('vcResultWrap').style.display = 'block';
+    toast('Audio clean ho gayi!','success');
+  }catch(err){
+    progWrap.style.display = 'none';
+    toast('Audio process karne mein masla hua','error');
+  }
+  document.getElementById('vcProcessBtn').disabled = false;
+}
+
+function vcDownloadAudio(){
+  if(!vcCleanBlob){ toast('Pehle audio clean karo','error'); return; }
+  const ext = vcOutputFormat==='mp3' ? 'mp3' : 'wav';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(vcCleanBlob);
+  a.download = (vcFile?.name?.replace(/\.[^/.]+$/,'') || 'audio') + '_cleaned.' + ext;
   a.click();
 }
 
