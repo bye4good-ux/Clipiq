@@ -177,6 +177,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .fx-thumb{position:relative;border-radius:10px;overflow:hidden;background:var(--bg3);aspect-ratio:16/9}
 .fx-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .fx-thumb-time{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);color:#fff;font-size:10px;font-weight:700;padding:4px 6px}
+.fx-thumb-del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+.fx-thumb-del:active{background:var(--red)}
 .fx-count-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:14px}
 .fx-count-pill b{color:var(--green)}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--border2);border-radius:14px;padding:12px 20px;font-size:13px;font-weight:600;z-index:300;transition:all .35s;opacity:0;pointer-events:none;white-space:nowrap;max-width:90vw}
@@ -879,7 +881,33 @@ function closePay(){ document.getElementById('payModal').classList.remove('open'
 function sendWA(){ const msg=encodeURIComponent(`ClipIQ ${selectedPlan==='monthly'?'Monthly Rs.199':'Yearly Rs.1990'}\nEmail: ${user?.email||''}`); window.open(`https://wa.me/923000000000?text=${msg}`,'_blank'); closePay(); }
 
 // FRAME EXTRACTOR TOOL
-let fxFile = null, fxFrames = []; // fxFrames: [{blob, time}]
+let fxFile = null, fxFrames = [], fxUidCounter = 0;
+
+function fxRenderGrid(){
+  const grid = document.getElementById('fxGrid');
+  grid.innerHTML = '';
+  fxFrames.forEach(f=>{
+    const thumb = document.createElement('div');
+    thumb.className = 'fx-thumb';
+    thumb.innerHTML = `<img src="${URL.createObjectURL(f.blob)}"><div class="fx-thumb-time">${f.label}</div><div class="fx-thumb-del" onclick="fxDeleteFrame(${f.uid})">✕</div>`;
+    grid.appendChild(thumb);
+  });
+  document.getElementById('fxFrameCount').textContent = fxFrames.length;
+  const createBtn = document.getElementById('vmCreateBtn');
+  if(createBtn) createBtn.disabled = !(fxFrames.length && vmAudioFile);
+}
+
+function fxDeleteFrame(uid){
+  fxFrames = fxFrames.filter(f => f.uid !== uid);
+  fxRenderGrid();
+  if(fxFrames.length === 0){
+    document.getElementById('fxResultWrap').style.display = 'none';
+    document.getElementById('vmSection').style.display = 'none';
+    toast('Sab frames delete ho gaye','');
+  } else {
+    toast('Frame delete ho gaya','');
+  }
+}
 
 document.getElementById('fxVideoInput').onchange = e => { if(e.target.files[0]) fxHandleFile(e.target.files[0]); };
 
@@ -1016,8 +1044,8 @@ async function fxExtractFrames(){
   const ctx = canvas.getContext('2d');
 
   fxFrames = [];
-  const grid = document.getElementById('fxGrid');
-  grid.innerHTML = '';
+  fxUidCounter = 0;
+  document.getElementById('fxGrid').innerHTML = '';
 
   for(let i=0; i<totalFrames; i++){
     const t = Math.min(startSec + i*intervalSec, endSec);
@@ -1026,12 +1054,8 @@ async function fxExtractFrames(){
     const blob = await new Promise(r=> canvas.toBlob(r, 'image/jpeg', 0.85));
     const mm = Math.floor(t/60), ss = Math.floor(t%60);
     const label = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
-    fxFrames.push({ blob, label, index:i+1 });
-
-    const thumb = document.createElement('div');
-    thumb.className = 'fx-thumb';
-    thumb.innerHTML = `<img src="${URL.createObjectURL(blob)}"><div class="fx-thumb-time">${label}</div>`;
-    grid.appendChild(thumb);
+    fxFrames.push({ blob, label, index:i+1, uid: fxUidCounter++ });
+    fxRenderGrid();
 
     const pct = Math.round(((i+1)/totalFrames)*100);
     progFill.style.width = pct+'%';
