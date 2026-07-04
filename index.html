@@ -338,6 +338,48 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <div class="fx-grid" id="fxGrid"></div>
         <button class="search-btn" style="background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="fxDownloadZip()">DOWNLOAD ZIP</button>
       </div>
+
+      <div id="vmSection" style="display:none;margin-top:28px;border-top:1px solid var(--border);padding-top:22px">
+        <div class="page-title" style="font-size:22px">Step 2: Add Voice & Create Video</div>
+        <div class="page-sub">Frames ko audio k sath jorh kar downloadable video banao</div>
+
+        <div class="fx-presets" style="margin-bottom:16px">
+          <span class="fx-preset active" id="vmTabUpload" onclick="vmSwitchTab('upload')">📁 Upload Audio</span>
+          <span class="fx-preset" id="vmTabTts" onclick="vmSwitchTab('tts')">🔊 AI Voice (Text)</span>
+        </div>
+
+        <div id="vmPanelUpload">
+          <div class="upload-zone" id="vmUploadZone" onclick="document.getElementById('vmAudioInput').click()" style="padding:22px">
+            <span class="upload-icon">🎵</span>
+            <div class="upload-title">Upload Audio</div>
+            <p class="upload-sub">MP3, WAV, M4A — voice ya background music</p>
+            <input type="file" id="vmAudioInput" accept="audio/*">
+          </div>
+          <div id="vmAudioName" style="font-size:12px;color:var(--green);text-align:center;margin-top:8px;font-weight:600"></div>
+        </div>
+
+        <div id="vmPanelTts" style="display:none">
+          <div class="fx-field">
+            <label class="fx-label">Narration Text</label>
+            <textarea id="vmText" placeholder="Yahan apna script likho..." style="width:100%;min-height:100px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;color:var(--text);font-family:inherit;font-size:14px;resize:vertical;box-sizing:border-box"></textarea>
+          </div>
+          <button class="preview-del" style="width:100%;padding:12px;border-radius:12px;margin-bottom:12px;font-size:13px" onclick="vmPreviewVoice()">🔊 Preview Voice</button>
+          <div class="fx-meta" style="display:block">⚠️ Ye voice sirf preview k liye hai. Final video mein add karne k liye: koi free TTS app/website se is text ki MP3 banao, phir "Upload Audio" tab se wahi file yahan upload kar do.</div>
+        </div>
+
+        <button class="search-btn" id="vmCreateBtn" disabled onclick="vmCreateVideo()" style="margin-top:16px">CREATE VIDEO</button>
+
+        <div class="fx-progress-wrap" id="vmProgressWrap">
+          <div class="loading-text" id="vmProgressLabel">Rendering video...</div>
+          <div class="fx-progress-bar"><div class="fx-progress-fill" id="vmProgressFill"></div></div>
+          <div class="fx-progress-text" id="vmProgressText">0%</div>
+        </div>
+
+        <div id="vmResultWrap" style="display:none;margin-top:16px">
+          <video id="vmResultVideo" controls playsinline style="width:100%;border-radius:14px;margin-bottom:12px;background:#000"></video>
+          <button class="search-btn" style="background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="vmDownloadVideo()">DOWNLOAD VIDEO</button>
+        </div>
+      </div>
     </div>
 
     <div id="tab-profile" class="tab-page">
@@ -934,6 +976,9 @@ async function fxExtractFrames(){
   document.getElementById('fxFrameCount').textContent = fxFrames.length;
   document.getElementById('fxResultWrap').style.display = 'block';
   document.getElementById('fxExtractBtn').disabled = false;
+  document.getElementById('vmSection').style.display = 'block';
+  vmVideoBlob = null;
+  document.getElementById('vmResultWrap').style.display = 'none';
   toast('Frames extracted!','success');
 }
 
@@ -951,6 +996,127 @@ async function fxDownloadZip(){
   a.download = (fxFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '_frames.zip';
   a.click();
   toast('Downloaded!','success');
+}
+
+// VIDEO MAKER (frames + audio -> video)
+let vmAudioFile = null, vmVideoBlob = null;
+
+function vmSwitchTab(tab){
+  document.getElementById('vmTabUpload').classList.toggle('active', tab==='upload');
+  document.getElementById('vmTabTts').classList.toggle('active', tab==='tts');
+  document.getElementById('vmPanelUpload').style.display = tab==='upload' ? 'block':'none';
+  document.getElementById('vmPanelTts').style.display = tab==='tts' ? 'block':'none';
+}
+
+document.getElementById('vmAudioInput').onchange = e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  vmAudioFile = f;
+  document.getElementById('vmAudioName').textContent = '✅ '+f.name;
+  document.getElementById('vmCreateBtn').disabled = false;
+};
+
+function vmPreviewVoice(){
+  const text = document.getElementById('vmText').value.trim();
+  if(!text){ toast('Pehle text likho','error'); return; }
+  if(!('speechSynthesis' in window)){ toast('Browser voice support nahi karta','error'); return; }
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+function vmFormatTime(s){
+  const m = Math.floor(s/60), ss = Math.floor(s%60);
+  return `${m}:${String(ss).padStart(2,'0')}`;
+}
+
+async function vmCreateVideo(){
+  if(!fxFrames.length){ toast('Pehle frames extract karo','error'); return; }
+  if(!vmAudioFile){ toast('Pehle audio upload karo','error'); return; }
+  if(!window.MediaRecorder){ toast('Ye browser video recording support nahi karta','error'); return; }
+
+  document.getElementById('vmCreateBtn').disabled = true;
+  document.getElementById('vmResultWrap').style.display = 'none';
+  const progWrap = document.getElementById('vmProgressWrap');
+  const progFill = document.getElementById('vmProgressFill');
+  const progText = document.getElementById('vmProgressText');
+  progWrap.style.display = 'block';
+  progFill.style.width = '0%';
+  progText.textContent = 'Preparing...';
+
+  try{
+    const audio = document.createElement('audio');
+    audio.src = URL.createObjectURL(vmAudioFile);
+    await new Promise((res,rej)=>{ audio.onloadedmetadata = res; audio.onerror = rej; });
+    const duration = audio.duration;
+    const perFrame = duration / fxFrames.length;
+
+    const images = await Promise.all(fxFrames.map(f=> new Promise(res=>{
+      const img = new Image();
+      img.onload = ()=>res(img);
+      img.src = URL.createObjectURL(f.blob);
+    })));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = images[0].naturalWidth;
+    canvas.height = images[0].naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(images[0],0,0,canvas.width,canvas.height);
+
+    const canvasStream = canvas.captureStream(30);
+    const audioStream = audio.captureStream ? audio.captureStream() : audio.mozCaptureStream();
+    const combined = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
+
+    let mimeType = 'video/webm;codecs=vp9,opus';
+    if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8,opus';
+    if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+    const recorder = new MediaRecorder(combined, {mimeType});
+    const chunks = [];
+    recorder.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
+    const donePromise = new Promise(res=>{ recorder.onstop = res; });
+
+    recorder.start();
+    await audio.play();
+
+    let i = 0;
+    const startTs = performance.now();
+    await new Promise(res=>{
+      const loop = setInterval(()=>{
+        const elapsed = (performance.now()-startTs)/1000;
+        const idx = Math.min(images.length-1, Math.floor(elapsed/perFrame));
+        if(idx !== i){ i = idx; ctx.drawImage(images[i],0,0,canvas.width,canvas.height); }
+        const pct = Math.min(100, Math.round((elapsed/duration)*100));
+        progFill.style.width = pct+'%';
+        progText.textContent = `Recording ${vmFormatTime(elapsed)} / ${vmFormatTime(duration)}`;
+        if(elapsed >= duration){
+          clearInterval(loop);
+          audio.pause();
+          recorder.stop();
+          res();
+        }
+      }, 100);
+    });
+
+    await donePromise;
+
+    vmVideoBlob = new Blob(chunks, {type:'video/webm'});
+    document.getElementById('vmResultVideo').src = URL.createObjectURL(vmVideoBlob);
+    progWrap.style.display = 'none';
+    document.getElementById('vmResultWrap').style.display = 'block';
+    toast('Video ban gayi!','success');
+  }catch(err){
+    progWrap.style.display = 'none';
+    toast('Video banane mein masla hua','error');
+  }
+  document.getElementById('vmCreateBtn').disabled = false;
+}
+
+function vmDownloadVideo(){
+  if(!vmVideoBlob){ toast('Pehle video banao','error'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(vmVideoBlob);
+  a.download = (fxFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '_narrated.webm';
+  a.click();
 }
 
 // TOAST
