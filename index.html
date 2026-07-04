@@ -369,6 +369,15 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
         <button class="search-btn" id="vmCreateBtn" disabled onclick="vmCreateVideo()" style="margin-top:16px">CREATE VIDEO</button>
 
+        <div class="fx-field" style="margin-top:14px">
+          <label class="fx-label">Transition Effect</label>
+          <div class="fx-presets">
+            <span class="fx-preset active" data-fx="random" onclick="vmSetTransition('random')">🎬 Random (top/bottom/side)</span>
+            <span class="fx-preset" data-fx="fade" onclick="vmSetTransition('fade')">🌫️ Fade</span>
+            <span class="fx-preset" data-fx="none" onclick="vmSetTransition('none')">✂️ Hard Cut</span>
+          </div>
+        </div>
+
         <div class="fx-progress-wrap" id="vmProgressWrap">
           <div class="loading-text" id="vmProgressLabel">Rendering video...</div>
           <div class="fx-progress-bar"><div class="fx-progress-fill" id="vmProgressFill"></div></div>
@@ -999,7 +1008,14 @@ async function fxDownloadZip(){
 }
 
 // VIDEO MAKER (frames + audio -> video)
-let vmAudioFile = null, vmVideoBlob = null;
+let vmAudioFile = null, vmVideoBlob = null, vmTransition = 'random';
+
+function vmSetTransition(type){
+  vmTransition = type;
+  document.querySelectorAll('#vmSection .fx-field:last-of-type .fx-preset').forEach(p=>{
+    p.classList.toggle('active', p.dataset.fx === type);
+  });
+}
 
 function vmSwitchTab(tab){
   document.getElementById('vmTabUpload').classList.toggle('active', tab==='upload');
@@ -1078,23 +1094,65 @@ async function vmCreateVideo(){
     recorder.start();
     await audio.play();
 
-    let i = 0;
-    const startTs = performance.now();
+    const directions = ['top','bottom','left','right'];
+    const frameDirections = images.map(()=> directions[Math.floor(Math.random()*directions.length)]);
+    const transDur = Math.min(0.6, perFrame*0.4);
+
+    function easeOutCubic(t){ return 1-Math.pow(1-t,3); }
+
+    function drawFrame(idx, prevIdx, progress){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(vmTransition === 'none' || progress >= 1 || prevIdx < 0){
+        ctx.drawImage(images[idx],0,0,canvas.width,canvas.height);
+        return;
+      }
+      const p = easeOutCubic(progress);
+      if(vmTransition === 'fade'){
+        ctx.globalAlpha = 1; ctx.drawImage(images[prevIdx],0,0,canvas.width,canvas.height);
+        ctx.globalAlpha = p; ctx.drawImage(images[idx],0,0,canvas.width,canvas.height);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.drawImage(images[prevIdx],0,0,canvas.width,canvas.height);
+        const dir = frameDirections[idx];
+        let x=0,y=0;
+        if(dir==='left') x = -canvas.width*(1-p);
+        else if(dir==='right') x = canvas.width*(1-p);
+        else if(dir==='top') y = -canvas.height*(1-p);
+        else y = canvas.height*(1-p);
+        ctx.drawImage(images[idx], x, y, canvas.width, canvas.height);
+      }
+    }
+
+    let curIdx = 0;
+    ctx.drawImage(images[0],0,0,canvas.width,canvas.height);
+
     await new Promise(res=>{
-      const loop = setInterval(()=>{
+      const startTs = performance.now();
+      function tick(){
         const elapsed = (performance.now()-startTs)/1000;
         const idx = Math.min(images.length-1, Math.floor(elapsed/perFrame));
-        if(idx !== i){ i = idx; ctx.drawImage(images[i],0,0,canvas.width,canvas.height); }
+        const tInFrame = elapsed - idx*perFrame;
+
+        if(idx !== curIdx || (idx>0 && tInFrame < transDur)){
+          const prevIdx = idx>0 ? idx-1 : -1;
+          const progress = idx>0 ? Math.min(1, tInFrame/transDur) : 1;
+          drawFrame(idx, prevIdx, progress);
+          curIdx = idx;
+        }
+
         const pct = Math.min(100, Math.round((elapsed/duration)*100));
         progFill.style.width = pct+'%';
         progText.textContent = `Recording ${vmFormatTime(elapsed)} / ${vmFormatTime(duration)}`;
+
         if(elapsed >= duration){
-          clearInterval(loop);
           audio.pause();
           recorder.stop();
           res();
+        } else {
+          requestAnimationFrame(tick);
         }
-      }, 100);
+      }
+      requestAnimationFrame(tick);
     });
 
     await donePromise;
