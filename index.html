@@ -316,6 +316,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <span class="preview-name" id="fxPreviewName"></span>
           <button class="preview-del" onclick="fxClearFile()">Remove</button>
         </div>
+        <button class="search-btn" id="fxExtractAudioBtn" style="margin-top:10px;background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="fxExtractAudio()">🎵 EXTRACT AUDIO (MP3)</button>
+        <div class="fx-progress-wrap" id="fxAudioProgressWrap">
+          <div class="loading-text" id="fxAudioProgressText">Extracting audio...</div>
+        </div>
+        <audio id="fxExtractedAudio" controls style="width:100%;display:none;margin-top:10px"></audio>
       </div>
 
       <div class="fx-meta" id="fxMeta"></div>
@@ -1029,6 +1034,42 @@ function fxSetTrimFromCurrent(which){
   fxUpdateEstimate();
 }
 
+async function fxExtractAudio(){
+  if(!fxFile){ toast('Pehle video upload karo','error'); return; }
+  const btn = document.getElementById('fxExtractAudioBtn');
+  const progWrap = document.getElementById('fxAudioProgressWrap');
+  const progText = document.getElementById('fxAudioProgressText');
+  btn.disabled = true;
+  progWrap.style.display = 'block';
+  progText.textContent = 'Decoding audio track...';
+
+  try{
+    const arrBuf = await fxFile.arrayBuffer();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const audioBuffer = await ctx.decodeAudioData(arrBuf);
+
+    progText.textContent = 'Encoding to MP3...';
+    const mp3Blob = window.lamejs ? vcBufferToMp3(audioBuffer) : vcBufferToWav(audioBuffer);
+
+    const audioEl = document.getElementById('fxExtractedAudio');
+    audioEl.src = URL.createObjectURL(mp3Blob);
+    audioEl.style.display = 'block';
+
+    const a = document.createElement('a');
+    a.href = audioEl.src;
+    a.download = (fxFile.name.replace(/\.[^/.]+$/,'') || 'video') + '_audio.mp3';
+    a.click();
+
+    progWrap.style.display = 'none';
+    toast('Audio nikal li gayi!','success');
+  }catch(err){
+    progWrap.style.display = 'none';
+    toast('Is video format se audio nahi nikal saka — koi doosra file try karo','error');
+  }
+  btn.disabled = false;
+}
+
 function fxClearFile(){
   fxFile = null; fxFrames = [];
   document.getElementById('fxPreviewVid').src = '';
@@ -1038,6 +1079,7 @@ function fxClearFile(){
   document.getElementById('fxResultWrap').style.display = 'none';
   document.getElementById('fxMeta').style.display = 'none';
   document.getElementById('fxTrimField').style.display = 'none';
+  document.getElementById('fxExtractedAudio').style.display = 'none';
   document.getElementById('fxExtractBtn').disabled = true;
 }
 
