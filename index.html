@@ -304,6 +304,21 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
       <div class="fx-meta" id="fxMeta"></div>
 
+      <div class="fx-field" id="fxTrimField" style="display:none">
+        <label class="fx-label">Trim Range — sirf isi hisse se frames niklenge</label>
+        <div class="fx-interval-row" style="margin-bottom:8px">
+          <span class="fx-unit" style="min-width:40px">Start</span>
+          <input type="text" id="fxStartTime" value="00:00" oninput="fxUpdateEstimate()" style="flex:1;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;text-align:center;outline:none">
+          <button class="fx-step-btn" style="width:auto;padding:0 10px;font-size:11px;font-family:inherit" onclick="fxSetTrimFromCurrent('start')">Use current</button>
+        </div>
+        <div class="fx-interval-row">
+          <span class="fx-unit" style="min-width:40px">End</span>
+          <input type="text" id="fxEndTime" value="00:00" oninput="fxUpdateEstimate()" style="flex:1;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;text-align:center;outline:none">
+          <button class="fx-step-btn" style="width:auto;padding:0 10px;font-size:11px;font-family:inherit" onclick="fxSetTrimFromCurrent('end')">Use current</button>
+        </div>
+        <p class="upload-sub" style="margin-top:8px">Video preview ko play/pause karke us waqt "Use current" dabao jahan se start/end chahiye (format mm:ss)</p>
+      </div>
+
       <div class="fx-field">
         <label class="fx-label">Extract 1 frame every</label>
         <div class="fx-interval-row">
@@ -881,11 +896,35 @@ function fxHandleFile(f){
   fxFrames = [];
   vid.onloadedmetadata = () => {
     const dur = vid.duration;
-    const mins = Math.floor(dur/60), secs = Math.round(dur%60);
     const meta = document.getElementById('fxMeta');
     meta.style.display = 'block';
+    document.getElementById('fxTrimField').style.display = 'block';
+    document.getElementById('fxStartTime').value = '00:00';
+    document.getElementById('fxEndTime').value = fxFormatTime(dur);
     fxUpdateEstimate();
   };
+}
+
+function fxFormatTime(s){
+  s = Math.max(0, Math.round(s));
+  const m = Math.floor(s/60), ss = s%60;
+  return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+}
+
+function fxParseTime(str){
+  const parts = str.trim().split(':').map(p=>parseInt(p,10));
+  if(parts.some(isNaN)) return null;
+  if(parts.length===2) return parts[0]*60+parts[1];
+  if(parts.length===1) return parts[0];
+  if(parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
+  return null;
+}
+
+function fxSetTrimFromCurrent(which){
+  const vid = document.getElementById('fxPreviewVid');
+  const t = fxFormatTime(vid.currentTime);
+  document.getElementById(which==='start' ? 'fxStartTime' : 'fxEndTime').value = t;
+  fxUpdateEstimate();
 }
 
 function fxClearFile(){
@@ -896,6 +935,7 @@ function fxClearFile(){
   document.getElementById('fxVideoInput').value = '';
   document.getElementById('fxResultWrap').style.display = 'none';
   document.getElementById('fxMeta').style.display = 'none';
+  document.getElementById('fxTrimField').style.display = 'none';
   document.getElementById('fxExtractBtn').disabled = true;
 }
 
@@ -926,9 +966,17 @@ function fxUpdateEstimate(){
   if(!vid.duration || !isFinite(vid.duration)) return;
   const intervalMin = parseFloat(document.getElementById('fxInterval').value)||1;
   const intervalSec = intervalMin*60;
-  const estCount = Math.max(1, Math.floor(vid.duration/intervalSec) + 1);
-  const dm = Math.floor(vid.duration/60), ds = Math.round(vid.duration%60);
-  meta.innerHTML = `Video length: <b>${dm}m ${ds}s</b> — will extract approx. <b>${estCount}</b> frame(s) at this interval`;
+
+  let startSec = fxParseTime(document.getElementById('fxStartTime').value);
+  let endSec = fxParseTime(document.getElementById('fxEndTime').value);
+  if(startSec===null) startSec = 0;
+  if(endSec===null) endSec = vid.duration;
+  startSec = Math.max(0, Math.min(startSec, vid.duration));
+  endSec = Math.max(startSec, Math.min(endSec, vid.duration));
+
+  const rangeDur = endSec - startSec;
+  const estCount = Math.max(1, Math.floor(rangeDur/intervalSec) + 1);
+  meta.innerHTML = `Trim range: <b>${fxFormatTime(startSec)} – ${fxFormatTime(endSec)}</b> (${fxFormatTime(rangeDur)} long) — approx. <b>${estCount}</b> frame(s) will be extracted`;
 }
 
 async function fxExtractFrames(){
@@ -952,7 +1000,16 @@ async function fxExtractFrames(){
   await new Promise(res => { video.onloadedmetadata = res; });
 
   const duration = video.duration;
-  const totalFrames = Math.max(1, Math.floor(duration/intervalSec) + 1);
+  let startSec = fxParseTime(document.getElementById('fxStartTime').value);
+  let endSec = fxParseTime(document.getElementById('fxEndTime').value);
+  if(startSec===null) startSec = 0;
+  if(endSec===null) endSec = duration;
+  startSec = Math.max(0, Math.min(startSec, duration));
+  endSec = Math.max(startSec, Math.min(endSec, duration));
+  if(endSec - startSec < 0.1){ toast('End time, start time se bara hona chahiye','error'); progWrap.style.display='none'; document.getElementById('fxExtractBtn').disabled=false; return; }
+
+  const rangeDur = endSec - startSec;
+  const totalFrames = Math.max(1, Math.floor(rangeDur/intervalSec) + 1);
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth || 640;
   canvas.height = video.videoHeight || 360;
@@ -963,7 +1020,7 @@ async function fxExtractFrames(){
   grid.innerHTML = '';
 
   for(let i=0; i<totalFrames; i++){
-    const t = Math.min(i*intervalSec, duration);
+    const t = Math.min(startSec + i*intervalSec, endSec);
     await new Promise(r=>{ video.currentTime = t; video.onseeked = r; });
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise(r=> canvas.toBlob(r, 'image/jpeg', 0.85));
