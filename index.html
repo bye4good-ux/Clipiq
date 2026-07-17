@@ -12,6 +12,7 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <style>
 :root{--red:#e50914;--gold:#f5c518;--bg:#07070f;--bg3:#141420;--card:#10101a;--card2:#181826;--border:#22223a;--border2:#2a2a45;--text:#ededf5;--muted:#6666aa;--green:#00e676}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -425,6 +426,49 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <button class="search-btn" style="background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="vmDownloadVideo()">DOWNLOAD VIDEO</button>
         </div>
       </div>
+
+      <div id="msSection" style="margin-top:28px;border-top:1px solid var(--border);padding-top:22px">
+        <div class="page-title" style="font-size:22px">🎵 Option B: Change Video Music</div>
+        <div class="page-sub">Video ki purani music hata kar apni khud ki MP3 add karo</div>
+
+        <div class="upload-zone" id="msVideoZone" onclick="document.getElementById('msVideoInput').click()" style="padding:22px">
+          <span class="upload-icon">🎬</span>
+          <div class="upload-title">Upload Video</div>
+          <p class="upload-sub">Jis video ki music change karni hai</p>
+          <input type="file" id="msVideoInput" accept="video/*">
+        </div>
+        <div id="msVideoName" style="font-size:12px;color:var(--green);text-align:center;margin-top:8px;font-weight:600"></div>
+
+        <div class="upload-zone" id="msAudioZone" onclick="document.getElementById('msAudioInput').click()" style="padding:22px;margin-top:14px">
+          <span class="upload-icon">🎵</span>
+          <div class="upload-title">Upload New MP3</div>
+          <p class="upload-sub">Nayi music jo video mein add karni hai</p>
+          <input type="file" id="msAudioInput" accept="audio/*">
+        </div>
+        <div id="msAudioName" style="font-size:12px;color:var(--green);text-align:center;margin-top:8px;font-weight:600"></div>
+
+        <div class="fx-field" style="margin-top:14px">
+          <label class="fx-label">Video ki Length kya rahe</label>
+          <div class="fx-presets">
+            <span class="fx-preset active" data-len="video" onclick="msSetLength('video')">🎬 Original Video Length</span>
+            <span class="fx-preset" data-len="audio" onclick="msSetLength('audio')">🎵 New Music Length</span>
+          </div>
+          <p class="upload-sub" style="margin-top:8px">Agar music chhoti/lambi ho to woh loop ho kar poori length tak chalegi</p>
+        </div>
+
+        <button class="search-btn" id="msCreateBtn" disabled onclick="msCreateVideo()" style="margin-top:16px">CHANGE MUSIC & CREATE</button>
+
+        <div class="fx-progress-wrap" id="msProgressWrap">
+          <div class="loading-text" id="msProgressLabel">Processing...</div>
+          <div class="fx-progress-bar"><div class="fx-progress-fill" id="msProgressFill"></div></div>
+          <div class="fx-progress-text" id="msProgressText">0%</div>
+        </div>
+
+        <div id="msResultWrap" style="display:none;margin-top:16px">
+          <video id="msResultVideo" controls playsinline style="width:100%;border-radius:14px;margin-bottom:12px;background:#000"></video>
+          <button class="search-btn" style="background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="msDownloadVideo()">DOWNLOAD VIDEO</button>
+        </div>
+      </div>
     </div>
 
     <div id="tab-voice" class="tab-page">
@@ -486,6 +530,52 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       </div>
     </div>
 
+    <div id="tab-convert" class="tab-page">
+      <div class="page-title">Format Converter</div>
+      <div class="page-sub">Video ko MP4, WebM, MOV, MKV ya GIF mein convert karo — fully in-browser</div>
+
+      <div class="upload-zone" id="cvUploadZone" onclick="document.getElementById('cvVideoInput').click()">
+        <span class="upload-icon">🔄</span>
+        <div class="upload-title">Upload Video</div>
+        <p class="upload-sub">Tap to select — koi bhi format (MP4, WebM, MOV, AVI, MKV...)</p>
+        <input type="file" id="cvVideoInput" accept="video/*">
+      </div>
+
+      <div class="preview-wrap" id="cvPreviewWrap" style="display:none">
+        <video id="cvPreviewVid" controls playsinline></video>
+        <div class="preview-info">
+          <span class="preview-name" id="cvPreviewName"></span>
+          <button class="preview-del" onclick="cvClearFile()">Remove</button>
+        </div>
+      </div>
+
+      <div class="fx-field">
+        <label class="fx-label">Convert To</label>
+        <div class="fx-presets" id="cvFormatPresets">
+          <span class="fx-preset active" data-fmt="mp4" onclick="cvSetFormat('mp4')">MP4</span>
+          <span class="fx-preset" data-fmt="webm" onclick="cvSetFormat('webm')">WebM</span>
+          <span class="fx-preset" data-fmt="mov" onclick="cvSetFormat('mov')">MOV</span>
+          <span class="fx-preset" data-fmt="mkv" onclick="cvSetFormat('mkv')">MKV</span>
+          <span class="fx-preset" data-fmt="gif" onclick="cvSetFormat('gif')">GIF</span>
+        </div>
+      </div>
+
+      <button class="search-btn" id="cvConvertBtn" disabled onclick="cvConvertVideo()">CONVERT VIDEO</button>
+
+      <div class="fx-progress-wrap" id="cvProgressWrap">
+        <div class="loading-text" id="cvProgressLabel">Engine load ho raha hai...</div>
+        <div class="fx-progress-bar"><div class="fx-progress-fill" id="cvProgressFill"></div></div>
+        <div class="fx-progress-text" id="cvProgressText">0%</div>
+      </div>
+
+      <div class="fx-meta">⚠️ Pehli dafa "Convert" dabane par ~25MB ka engine download hota hai (ek hi baar). Lambi videos mein zyada time lagta hai kyunke sab kuch phone/browser k andar process hota hai — chhoti clips (1-3 min) sabse tez chalengi. GIF sirf pehle 8 seconds ka banega.</div>
+
+      <div id="cvResultWrap" style="display:none;margin-top:16px">
+        <video id="cvResultVideo" controls playsinline style="width:100%;border-radius:14px;margin-bottom:12px;background:#000"></video>
+        <button class="search-btn" style="background:linear-gradient(135deg,var(--green) 0%,#008a45 100%)" onclick="cvDownloadVideo()">DOWNLOAD CONVERTED FILE</button>
+      </div>
+    </div>
+
     <div id="tab-profile" class="tab-page">
       <div class="prof-header">
         <div class="prof-avatar" id="profAvatar">U</div>
@@ -514,6 +604,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <button class="nav-tab" data-tab="history" onclick="switchTab('history')"><span class="nav-tab-icon">📜</span><span class="nav-tab-label">History</span></button>
     <button class="nav-tab" data-tab="frames" onclick="switchTab('frames')"><span class="nav-tab-icon">🎞️</span><span class="nav-tab-label">Frames</span></button>
     <button class="nav-tab" data-tab="voice" onclick="switchTab('voice')"><span class="nav-tab-icon">🎙️</span><span class="nav-tab-label">Voice</span></button>
+    <button class="nav-tab" data-tab="convert" onclick="switchTab('convert')"><span class="nav-tab-icon">🔄</span><span class="nav-tab-label">Convert</span></button>
     <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')"><span class="nav-tab-icon">👤</span><span class="nav-tab-label">Profile</span></button>
   </div>
 </div>
@@ -1371,6 +1462,261 @@ function vmDownloadVideo(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(vmVideoBlob);
   a.download = (fxFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '_narrated.webm';
+  a.click();
+}
+
+// OPTION B: CHANGE VIDEO MUSIC (replace a video's audio track with your own MP3)
+let msVideoFile = null, msAudioFile = null, msVideoBlob = null, msLengthMode = 'video';
+
+function msSetLength(mode){
+  msLengthMode = mode;
+  document.querySelectorAll('#msSection .fx-field .fx-preset').forEach(p=>{
+    p.classList.toggle('active', p.dataset.len === mode);
+  });
+}
+
+function msUpdateCreateBtn(){
+  document.getElementById('msCreateBtn').disabled = !(msVideoFile && msAudioFile);
+}
+
+document.getElementById('msVideoInput').onchange = e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  if(!f.type.startsWith('video/')){ toast('Video file select karo','error'); return; }
+  msVideoFile = f;
+  document.getElementById('msVideoName').textContent = '✅ '+f.name;
+  msUpdateCreateBtn();
+};
+
+document.getElementById('msAudioInput').onchange = e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  if(!f.type.startsWith('audio/')){ toast('Audio file select karo','error'); return; }
+  msAudioFile = f;
+  document.getElementById('msAudioName').textContent = '✅ '+f.name;
+  msUpdateCreateBtn();
+};
+
+function msFormatTime(s){
+  const m = Math.floor(s/60), ss = Math.floor(s%60);
+  return `${m}:${String(ss).padStart(2,'0')}`;
+}
+
+async function msCreateVideo(){
+  if(!msVideoFile || !msAudioFile){ toast('Video aur MP3 dono upload karo','error'); return; }
+  if(!window.MediaRecorder){ toast('Ye browser video recording support nahi karta','error'); return; }
+
+  document.getElementById('msCreateBtn').disabled = true;
+  document.getElementById('msResultWrap').style.display = 'none';
+  const progWrap = document.getElementById('msProgressWrap');
+  const progFill = document.getElementById('msProgressFill');
+  const progText = document.getElementById('msProgressText');
+  progWrap.style.display = 'block';
+  progFill.style.width = '0%';
+  progText.textContent = 'Preparing...';
+
+  try{
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(msVideoFile);
+    video.muted = true;
+    video.playsInline = true;
+    await new Promise((res,rej)=>{ video.onloadedmetadata = res; video.onerror = rej; });
+
+    if(!video.captureStream){ throw new Error('captureStream not supported'); }
+
+    const audio = document.createElement('audio');
+    audio.src = URL.createObjectURL(msAudioFile);
+    await new Promise((res,rej)=>{ audio.onloadedmetadata = res; audio.onerror = rej; });
+
+    const targetDuration = msLengthMode === 'video' ? video.duration : audio.duration;
+    video.loop = video.duration < targetDuration;
+    audio.loop = audio.duration < targetDuration;
+
+    const videoStream = video.captureStream();
+    const audioStream = audio.captureStream ? audio.captureStream() : audio.mozCaptureStream();
+    const combined = new MediaStream([...videoStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
+
+    let mimeType = 'video/webm;codecs=vp9,opus';
+    if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8,opus';
+    if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+    const recorder = new MediaRecorder(combined, {mimeType});
+    const chunks = [];
+    recorder.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
+    const donePromise = new Promise(res=>{ recorder.onstop = res; });
+
+    recorder.start();
+    await Promise.all([video.play(), audio.play()]);
+
+    await new Promise(res=>{
+      const startTs = performance.now();
+      function tick(){
+        const elapsed = (performance.now()-startTs)/1000;
+        const pct = Math.min(100, Math.round((elapsed/targetDuration)*100));
+        progFill.style.width = pct+'%';
+        progText.textContent = `Recording ${msFormatTime(elapsed)} / ${msFormatTime(targetDuration)}`;
+        if(elapsed >= targetDuration){
+          video.pause();
+          audio.pause();
+          recorder.stop();
+          res();
+        } else {
+          requestAnimationFrame(tick);
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+
+    await donePromise;
+
+    msVideoBlob = new Blob(chunks, {type:'video/webm'});
+    document.getElementById('msResultVideo').src = URL.createObjectURL(msVideoBlob);
+    progWrap.style.display = 'none';
+    document.getElementById('msResultWrap').style.display = 'block';
+    toast('Music change ho gayi!','success');
+  }catch(err){
+    progWrap.style.display = 'none';
+    toast('Music change karne mein masla hua — koi doosra video/browser try karo','error');
+  }
+  document.getElementById('msCreateBtn').disabled = false;
+}
+
+function msDownloadVideo(){
+  if(!msVideoBlob){ toast('Pehle video banao','error'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(msVideoBlob);
+  a.download = (msVideoFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '_new_music.webm';
+  a.click();
+}
+
+// FORMAT CONVERTER (webm/mp4/mov/mkv/gif) using ffmpeg.wasm
+let cvFile = null, cvOutputBlob = null, cvOutputFormat = 'mp4', cvFFmpeg = null, cvLoaded = false;
+
+function cvSetFormat(fmt){
+  cvOutputFormat = fmt;
+  document.querySelectorAll('#cvFormatPresets .fx-preset').forEach(p=>{
+    p.classList.toggle('active', p.dataset.fmt === fmt);
+  });
+}
+
+document.getElementById('cvVideoInput').onchange = e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  if(!f.type.startsWith('video/')){ toast('Video file select karo','error'); return; }
+  cvFile = f;
+  cvOutputBlob = null;
+  document.getElementById('cvPreviewVid').src = URL.createObjectURL(f);
+  document.getElementById('cvPreviewName').textContent = f.name + ' (' + (f.size/1024/1024).toFixed(1) + 'MB)';
+  document.getElementById('cvPreviewWrap').style.display = 'block';
+  document.getElementById('cvUploadZone').style.display = 'none';
+  document.getElementById('cvResultWrap').style.display = 'none';
+  document.getElementById('cvConvertBtn').disabled = false;
+};
+
+function cvClearFile(){
+  cvFile = null;
+  document.getElementById('cvPreviewWrap').style.display = 'none';
+  document.getElementById('cvUploadZone').style.display = 'block';
+  document.getElementById('cvConvertBtn').disabled = true;
+  document.getElementById('cvVideoInput').value = '';
+}
+
+async function cvLoadEngine(progLabel){
+  if(cvLoaded) return;
+  if(!window.FFmpeg){ throw new Error('FFmpeg library load nahi hui'); }
+  const { createFFmpeg } = FFmpeg;
+  cvFFmpeg = createFFmpeg({
+    log:false,
+    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+  });
+  progLabel.textContent = 'Conversion engine download ho raha hai (pehli dafa)...';
+  await cvFFmpeg.load();
+  cvLoaded = true;
+}
+
+async function cvConvertVideo(){
+  if(!cvFile){ toast('Pehle video upload karo','error'); return; }
+  if(!window.FFmpeg){ toast('Convert engine load nahi ho saka — internet check karo','error'); return; }
+
+  document.getElementById('cvConvertBtn').disabled = true;
+  document.getElementById('cvResultWrap').style.display = 'none';
+  const progWrap = document.getElementById('cvProgressWrap');
+  const progFill = document.getElementById('cvProgressFill');
+  const progText = document.getElementById('cvProgressText');
+  const progLabel = document.getElementById('cvProgressLabel');
+  progWrap.style.display = 'block';
+  progFill.style.width = '0%';
+  progText.textContent = '';
+
+  try{
+    await cvLoadEngine(progLabel);
+    progLabel.textContent = 'Converting...';
+
+    cvFFmpeg.setProgress(({ ratio })=>{
+      if(ratio >= 0 && ratio <= 1){
+        const pct = Math.round(ratio*100);
+        progFill.style.width = pct+'%';
+        progText.textContent = pct+'%';
+      }
+    });
+
+    const { fetchFile } = FFmpeg;
+    const inExt = (cvFile.name.split('.').pop() || 'mp4').toLowerCase();
+    const inName = 'input.' + inExt;
+    const outName = 'output.' + cvOutputFormat;
+
+    cvFFmpeg.FS('writeFile', inName, await fetchFile(cvFile));
+
+    let args = ['-i', inName];
+    if(cvOutputFormat === 'gif'){
+      args.push('-vf','fps=10,scale=480:-1:flags=lanczos','-t','8', outName);
+    } else if(cvOutputFormat === 'webm'){
+      args.push('-c:v','libvpx','-b:v','1M','-c:a','libvorbis', outName);
+    } else {
+      args.push('-c:v','libx264','-preset','ultrafast','-crf','23','-c:a','aac', outName);
+    }
+
+    await cvFFmpeg.run(...args);
+
+    const data = cvFFmpeg.FS('readFile', outName);
+    const mimeMap = {mp4:'video/mp4', webm:'video/webm', mov:'video/quicktime', mkv:'video/x-matroska', gif:'image/gif'};
+    cvOutputBlob = new Blob([data.buffer], {type: mimeMap[cvOutputFormat] || 'application/octet-stream'});
+
+    try{ cvFFmpeg.FS('unlink', inName); cvFFmpeg.FS('unlink', outName); }catch(e){}
+
+    const resultEl = document.getElementById('cvResultVideo');
+    let img = document.getElementById('cvResultImg');
+    if(cvOutputFormat === 'gif'){
+      resultEl.style.display = 'none';
+      if(!img){
+        img = document.createElement('img');
+        img.id = 'cvResultImg';
+        img.style.cssText = 'width:100%;border-radius:14px;margin-bottom:12px';
+        resultEl.parentNode.insertBefore(img, resultEl);
+      }
+      img.style.display = 'block';
+      img.src = URL.createObjectURL(cvOutputBlob);
+    } else {
+      resultEl.style.display = 'block';
+      if(img) img.style.display = 'none';
+      resultEl.src = URL.createObjectURL(cvOutputBlob);
+    }
+
+    progWrap.style.display = 'none';
+    document.getElementById('cvResultWrap').style.display = 'block';
+    toast('Convert ho gaya!','success');
+  }catch(err){
+    progWrap.style.display = 'none';
+    toast('Convert karne mein masla hua — choti clip try karo','error');
+  }
+  document.getElementById('cvConvertBtn').disabled = false;
+}
+
+function cvDownloadVideo(){
+  if(!cvOutputBlob){ toast('Pehle convert karo','error'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(cvOutputBlob);
+  a.download = (cvFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '.' + cvOutputFormat;
   a.click();
 }
 
