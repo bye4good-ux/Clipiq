@@ -1627,7 +1627,8 @@ async function cvLoadEngine(progLabel){
   const { createFFmpeg } = FFmpeg;
   cvFFmpeg = createFFmpeg({
     log:false,
-    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+    mainName: 'main',
+    corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js'
   });
   progLabel.textContent = 'Conversion engine download ho raha hai (pehli dafa)...';
   await cvFFmpeg.load();
@@ -1706,8 +1707,9 @@ async function cvConvertVideo(){
     document.getElementById('cvResultWrap').style.display = 'block';
     toast('Convert ho gaya!','success');
   }catch(err){
+    console.error('Convert error:', err);
     progWrap.style.display = 'none';
-    toast('Convert karne mein masla hua — choti clip try karo','error');
+    toast('Convert karne mein masla hua: ' + (err?.message || err), 'error');
   }
   document.getElementById('cvConvertBtn').disabled = false;
 }
