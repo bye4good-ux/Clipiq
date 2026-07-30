@@ -576,6 +576,28 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       </div>
     </div>
 
+    <div id="tab-clock" class="tab-page">
+      <div class="page-title">🕐 Anti-Clock</div>
+      <div class="page-sub">Ulta chalne wala analogue clock — Pakistan Standard Time se sync, magar suiyan ulti (anti-clockwise) chalti hain</div>
+
+      <div style="display:flex;justify-content:center;margin:20px 0 8px">
+        <canvas id="acCanvas" width="300" height="300" style="max-width:100%;height:auto"></canvas>
+      </div>
+
+      <div style="text-align:center;margin-bottom:18px">
+        <div id="acDigital" style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;color:var(--gold)">--:--:--</div>
+        <div class="upload-sub" style="margin-top:2px">Pakistan Standard Time (PST, UTC+5)</div>
+      </div>
+
+      <div class="fx-field">
+        <label class="fx-label">Numbers</label>
+        <div class="fx-presets" id="acNumPresets">
+          <span class="fx-preset active" data-num="normal" onclick="acSetNumberMode('normal')">🔢 Seedhay (1→12)</span>
+          <span class="fx-preset" data-num="reversed" onclick="acSetNumberMode('reversed')">🔃 Ultay (12→1)</span>
+        </div>
+      </div>
+    </div>
+
     <div id="tab-profile" class="tab-page">
       <div class="prof-header">
         <div class="prof-avatar" id="profAvatar">U</div>
@@ -605,6 +627,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <button class="nav-tab" data-tab="frames" onclick="switchTab('frames')"><span class="nav-tab-icon">🎞️</span><span class="nav-tab-label">Frames</span></button>
     <button class="nav-tab" data-tab="voice" onclick="switchTab('voice')"><span class="nav-tab-icon">🎙️</span><span class="nav-tab-label">Voice</span></button>
     <button class="nav-tab" data-tab="convert" onclick="switchTab('convert')"><span class="nav-tab-icon">🔄</span><span class="nav-tab-label">Convert</span></button>
+    <button class="nav-tab" data-tab="clock" onclick="switchTab('clock')"><span class="nav-tab-icon">🕐</span><span class="nav-tab-label">Clock</span></button>
     <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')"><span class="nav-tab-icon">👤</span><span class="nav-tab-label">Profile</span></button>
   </div>
 </div>
@@ -671,6 +694,7 @@ function switchTab(t){
   document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.tab-page').forEach(el=>el.classList.toggle('active',el.id==='tab-'+t));
   if(t==='history') renderHistory();
+  if(t==='clock'){ acStart(); } else { acStop(); }
 }
 
 // FILE
@@ -1720,6 +1744,137 @@ function cvDownloadVideo(){
   a.href = URL.createObjectURL(cvOutputBlob);
   a.download = (cvFile?.name?.replace(/\.[^/.]+$/,'') || 'video') + '.' + cvOutputFormat;
   a.click();
+}
+
+// ANTI-CLOCK: analogue clock synced to Pakistan Standard Time, hands run anti-clockwise
+let acNumberMode = 'normal';
+let acRunning = false;
+
+function acSetNumberMode(mode){
+  acNumberMode = mode;
+  document.querySelectorAll('#acNumPresets .fx-preset').forEach(p=>{
+    p.classList.toggle('active', p.dataset.num === mode);
+  });
+}
+
+function acGetPSTNow(){
+  // Build current time in Pakistan Standard Time (UTC+5, no DST) regardless of device timezone
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utcMs + 5 * 3600000);
+}
+
+function acDraw(){
+  const canvas = document.getElementById('acCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 10;
+
+  ctx.clearRect(0,0,w,h);
+
+  // Face
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle = '#10101a';
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#f5c518';
+  ctx.stroke();
+
+  // Tick marks
+  for(let i=0;i<60;i++){
+    const ang = (i*6) * Math.PI/180;
+    const isHour = i % 5 === 0;
+    const outer = r - 6;
+    const inner = isHour ? r - 18 : r - 12;
+    ctx.beginPath();
+    ctx.moveTo(cx + outer*Math.sin(ang), cy - outer*Math.cos(ang));
+    ctx.lineTo(cx + inner*Math.sin(ang), cy - inner*Math.cos(ang));
+    ctx.strokeStyle = isHour ? '#e50914' : '#3a3a55';
+    ctx.lineWidth = isHour ? 3 : 1.5;
+    ctx.stroke();
+  }
+
+  // Numbers (position 0 = top = "12"). Normal: clockwise 12,1,2...11. Reversed: 12,11,10...1
+  ctx.font = '700 18px "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = '#ededf5';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const numR = r - 32;
+  for(let i=0;i<12;i++){
+    const ang = (i*30) * Math.PI/180;
+    let label;
+    if(acNumberMode === 'normal'){
+      label = i===0 ? 12 : i;
+    } else {
+      label = i===0 ? 12 : (12-i);
+    }
+    const x = cx + numR*Math.sin(ang);
+    const y = cy - numR*Math.cos(ang);
+    ctx.fillText(String(label), x, y);
+  }
+
+  // Time — Pakistan Standard Time
+  const pst = acGetPSTNow();
+  const hh = pst.getHours()%12, mm = pst.getMinutes(), ss = pst.getSeconds(), msf = pst.getMilliseconds();
+
+  // Normal clockwise angles based on real PST time...
+  const secDeg = (ss + msf/1000) * 6;
+  const minDeg = (mm + ss/60) * 6;
+  const hourDeg = (hh + mm/60) * 30;
+  // ...then reversed so hands physically sweep anti-clockwise
+  const secA = -secDeg * Math.PI/180;
+  const minA = -minDeg * Math.PI/180;
+  const hourA = -hourDeg * Math.PI/180;
+
+  function drawHand(angle, length, width, color){
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(0, -length);
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawHand(hourA, r*0.5, 6, '#ededf5');
+  drawHand(minA, r*0.72, 4, '#f5c518');
+  drawHand(secA, r*0.82, 2, '#e50914');
+
+  // Center pin
+  ctx.beginPath();
+  ctx.arc(cx,cy,5,0,Math.PI*2);
+  ctx.fillStyle = '#e50914';
+  ctx.fill();
+
+  // Digital readout (actual PST value, for reference)
+  const digital = document.getElementById('acDigital');
+  if(digital){
+    const h12 = pst.getHours()%12 === 0 ? 12 : pst.getHours()%12;
+    const ampm = pst.getHours() >= 12 ? 'PM' : 'AM';
+    digital.textContent = String(h12).padStart(2,'0')+':'+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0')+' '+ampm;
+  }
+}
+
+function acLoop(){
+  if(!acRunning) return;
+  acDraw();
+  requestAnimationFrame(acLoop);
+}
+
+function acStart(){
+  if(acRunning) return;
+  acRunning = true;
+  acLoop();
+}
+
+function acStop(){
+  acRunning = false;
 }
 
 // VOICE CLEANER TOOL
